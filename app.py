@@ -35,6 +35,7 @@ def get_retriever():
 def _submit_heard():
     st.session_state.queued = st.session_state.heard_edit
     st.session_state.heard_edit = ""
+    st.session_state.mic_n = st.session_state.get("mic_n", 0) + 1  # fresh recorder for the next question
 
 
 def last_checked() -> str:
@@ -120,7 +121,7 @@ else:
     lang_choice = st.radio("Speaking language / बोलने की भाषा", ["Auto", "English", "हिन्दी"], horizontal=True)
     hint = {"English": "en", "हिन्दी": "hi"}.get(lang_choice)
     speak_on = st.toggle("Read answers aloud / उत्तर सुनें", value=False)
-    audio = st.audio_input("🎤 Speak your question / अपना सवाल बोलें")
+    audio = st.audio_input("🎤 Speak your question / अपना सवाल बोलें", key=f"mic_{st.session_state.get('mic_n', 0)}")
     if audio is not None:
         data = audio.getvalue()
         if st.session_state.get("audio_hash") != hash(data):  # transcribe each recording only once
@@ -134,7 +135,8 @@ else:
         st.text_area("I heard this. Fix anything wrong, then press Ask (numbers matter!):", key="heard_edit")
         st.button("Ask / पूछें", on_click=_submit_heard)
 
-    q = st.session_state.pop("queued", None) or st.chat_input("e.g. What documents do I need? / मुझे कौन से दस्तावेज़ चाहिए?")
+    typed = st.chat_input("e.g. What documents do I need? / मुझे कौन से दस्तावेज़ चाहिए?")  # always render the box
+    q = st.session_state.pop("queued", None) or typed
     if q:
         lang = voice.detect_lang(q)  # the answer follows the language of the question
         try:
