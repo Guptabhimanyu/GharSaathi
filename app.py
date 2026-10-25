@@ -8,7 +8,7 @@ import llm
 import refresh
 import loan_calc
 import voice
-from rag import Retriever, chat_reply, loan_options, personalized_plan
+from rag import MIN_SCORE, NOTICE_PREFIXES, Retriever, chat_reply, loan_options, personalized_plan
 from user_profile import Profile
 
 MANIFEST = Path("data/manifest.json")
@@ -135,13 +135,15 @@ else:
         st.text_area("I heard this. Fix anything wrong, then press Ask (numbers matter!):", key="heard_edit")
         st.button("Ask / पूछें", on_click=_submit_heard)
 
+    debug = st.sidebar.checkbox("Debug: show match scores")
     typed = st.chat_input("e.g. What documents do I need? / मुझे कौन से दस्तावेज़ चाहिए?")  # always render the box
     q = st.session_state.pop("queued", None) or typed
     if q:
         lang = voice.detect_lang(q)  # the answer follows the language of the question
         try:
             search_q = voice.to_english(q) if lang == "hi" else q
-        except llm.LLMUnavailable:
+        except llm.LLMUnavailable as err:
+            st.caption(f"Technical details: {err}")
             st.warning("Hindi translation is temporarily unavailable. Please try again in a minute, or ask in English. / कृपया एक मिनट बाद फिर कोशिश करें।")
             st.stop()
         st.chat_message("user").markdown(q)
@@ -150,11 +152,13 @@ else:
         answer, _ = chat_reply(retriever, profile, st.session_state.history, q, lang, search_q)
         st.chat_message("assistant").markdown(answer)
         st.caption(f"Answered by {llm.LAST_PROVIDER}")
+        if debug and _:
+            st.caption(f"Best match score: {_[0]['score']:.2f} (documents are used above {MIN_SCORE})")
         if speak_on:
             mp3 = voice.speak(answer, lang)
             if mp3:
                 st.audio(mp3, format="audio/mp3")
-        if not answer.startswith("⚠️"):  # don't feed the fallback notice back to the model as history
+        if not answer.startswith(NOTICE_PREFIXES):  # don't feed the fallback notice back to the model as history
             st.session_state.history += [{"role": "user", "content": q}, {"role": "assistant", "content": answer}]
     if st.sidebar.button("Start over"):
         st.session_state.clear()

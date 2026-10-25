@@ -60,9 +60,19 @@ def transcribe(audio: bytes, lang_hint: str | None = None) -> str:
 
 def to_english(text: str) -> str:
     """Translate a Hindi question to English so it can search the English documents."""
-    return llm.complete(
-        "Translate the user's Hindi text to English. Output only the translation. Keep all numbers and amounts exact.",
-        [{"role": "user", "content": text}], max_tokens=300)
+    try:
+        return llm.complete(
+            "Translate the user's Hindi text to English. Output only the translation. Keep all numbers and amounts exact.",
+            [{"role": "user", "content": text}], max_tokens=300)
+    except llm.LLMUnavailable as err:
+        try:  # keyless last resort (unofficial Google Translate wrapper)
+            from deep_translator import GoogleTranslator
+            out = GoogleTranslator(source="hi", target="en").translate(text)
+        except Exception:
+            out = None
+        if out:
+            return out
+        raise err
 
 
 def speak(text: str, lang: str) -> bytes | None:

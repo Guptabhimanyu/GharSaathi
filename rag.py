@@ -1,5 +1,6 @@
 """Retrieval + grounded generation."""
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,14 @@ import llm
 from user_profile import Profile
 
 INDEX = Path("data/index")
+MIN_SCORE = float(os.getenv("MIN_SCORE", "0.45"))  # below this similarity a passage is treated as unrelated
+NOTICE_PREFIXES = ("⚠️", "ℹ️")  # system notices that must not be stored as chat history
+OUT_OF_SCOPE = {
+    "en": "ℹ️ I can only help with government housing schemes (rental housing, home loans and subsidies), using the official "
+          "documents I have. Try for example: *What documents do I need for rental housing?*",
+    "hi": "ℹ️ मैं केवल सरकारी आवास योजनाओं (किराये का मकान, होम लोन और सब्सिडी) के बारे में, अपने आधिकारिक दस्तावेज़ों के "
+          "आधार पर मदद कर सकता हूँ। जैसे पूछिए: *किराये के मकान के लिए कौन से दस्तावेज़ चाहिए?*",
+}
 
 SYSTEM = """You help people in India understand government housing schemes, using ONLY the numbered context passages provided.
 Rules:
@@ -29,17 +38,19 @@ class Retriever:
 
     def search(self, query: str, k: int = 5):
         q = embedder.embed([query])[0]
-        top = np.argsort(-(self.emb @ q))[:k]
-        return [self.chunks[i] for i in top]
+        scores = self.emb @ q
+        top = np.argsort(-scores)[:k]
+        return [{**self.chunks[i], "score": float(scores[i])} for i in top]
 
     def search_many(self, queries, k_each=3, limit=8):
         seen, out = set(), []
         for q in queries:
             for c in self.search(q, k_each):
                 key = (c["source"], c["page"], c["text"][:60])
-                if key not in seen:
+                if key not in seen and c["score"] >= MIN_SCORE:  # drop unrelated passages
                     seen.add(key)
                     out.append(c)
+        out.sort(key=lambda c: -c["score"])
         return out[:limit]
 
 
@@ -64,6 +75,8 @@ def _extractive(chunks, n=3, reason: str = "") -> str:
 
 
 def _answer(messages, chunks, max_tokens=1200) -> str:
+    if not chunks:  # nothing relevant retrieved: don't call the model at all
+        return OUT_OF_SCOPE["en"]
     try:
         return _llm(messages, max_tokens)
     except llm.LLMUnavailable as e:
@@ -71,7 +84,7 @@ def _answer(messages, chunks, max_tokens=1200) -> str:
 
 
 def personalized_plan(retriever: Retriever, profile: Profile):
-    chunks = retriever.search_many(profile.queries())
+    chunks = retriever.search_many(profile.queries(), limit=6)
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
         "Write a SHORT guide, under 180 words, with exactly these three headings:\n"
@@ -87,6 +100,9 @@ def personalized_plan(retriever: Retriever, profile: Profile):
 def chat_reply(retriever: Retriever, profile: Profile, history: list[dict], question: str,
                lang: str = "en", search_query: str | None = None):
     sq = search_query or question  # English text used for searching the (English) documents
+    raw = retriever.search(sq, 3)  # relevance gate uses the question alone (profile words would inflate scores)
+    if not any(c["score"] >= MIN_SCORE for c in raw):
+        return OUT_OF_SCOPE.get(lang, OUT_OF_SCOPE["en"]), raw[:1]
     chunks = retriever.search_many([sq, f"{sq} {profile.occupation} {profile.need}"], k_each=4, limit=6)
     answer_in = "Hindi (Devanagari script)" if lang == "hi" else "English"
     prompt = (
@@ -98,7 +114,7 @@ def chat_reply(retriever: Retriever, profile: Profile, history: list[dict], ques
 
 
 def loan_options(retriever: Retriever, profile: Profile):
-    chunks = retriever.search_many(profile.loan_queries(), k_each=3, limit=9)
+    chunks = retriever.search_many(profile.loan_queries(), k_each=3, limit=6)
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
         "Suggest at most 3 loan ROUTES worth exploring for this person, best fit first, under 200 words in total. "

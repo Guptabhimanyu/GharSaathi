@@ -66,12 +66,16 @@ def _order():
     return [PROVIDERS[n.strip()] for n in names if n.strip() in PROVIDERS]
 
 
-def _cool_for(err: Exception) -> int:
-    if isinstance(err, RateLimitError):
-        return 90          # out of requests/tokens: wait a bit
+def _cool_for(err: Exception) -> float:
+    if isinstance(err, RateLimitError):  # honour the server's Retry-After when given (usually a few seconds)
+        try:
+            wait = float(err.response.headers.get("retry-after", ""))
+        except Exception:
+            wait = 60.0
+        return min(max(wait, 5.0), 90.0)
     if isinstance(err, (AuthenticationError, NotFoundError)):
-        return 3600        # bad key or model retired: don't retry this session
-    return 30              # timeouts / 5xx / empty answer
+        return 3600.0      # bad key or model retired: don't retry this session
+    return 30.0            # timeouts / 5xx / empty answer
 
 
 def _reasoning(model: str) -> bool:
@@ -83,13 +87,9 @@ def _clean(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text or "", flags=re.S).strip()
 
 
-def complete(system: str, messages: list, max_tokens: int = 1200) -> str:
+def _attempt(candidates, system, messages, max_tokens, errors):
+    """One pass over every provider/model that is not cooling down. Returns text or None."""
     global LAST_PROVIDER
-    candidates = [p for p in _order() if p.enabled]
-    if not candidates:
-        raise LLMUnavailable("No LLM key found. Add at least one of: "
-                             + ", ".join(p.key_env for p in PROVIDERS.values()))
-    errors = []
     for p in candidates:
         if _cooldown.get(f"{p.name}:*", 0) > time.time():
             continue
@@ -115,5 +115,26 @@ def complete(system: str, messages: list, max_tokens: int = 1200) -> str:
                 if isinstance(e, AuthenticationError):  # the key itself is bad: skip this provider's other models
                     _cooldown[f"{p.name}:*"] = time.time() + 3600
                     break
+    return None
+
+
+def complete(system: str, messages: list, max_tokens: int = 1200) -> str:
+    global LAST_PROVIDER
+    candidates = [p for p in _order() if p.enabled]
+    if not candidates:
+        raise LLMUnavailable("No LLM key found. Add at least one of: "
+                             + ", ".join(p.key_env for p in PROVIDERS.values()))
+    names, errors = {p.name for p in candidates}, []
+    for attempt in (1, 2):
+        text = _attempt(candidates, system, messages, max_tokens, errors)
+        if text:
+            return text
+        if attempt == 1:  # everything is rate-limited for a few seconds? wait for the soonest recovery, retry once
+            now = time.time()
+            waits = [t - now for k, t in _cooldown.items() if t > now and k.split(":", 1)[0] in names]
+            if waits and min(waits) <= 20:
+                time.sleep(min(waits) + 0.5)
+                continue
+        break
     LAST_PROVIDER = "none (showing document passages only)"
     raise LLMUnavailable("All LLM models failed or are cooling down: " + "; ".join(errors or ["all on cooldown"]))

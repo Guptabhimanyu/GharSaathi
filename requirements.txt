@@ -7,3 +7,4 @@ numpy
 requests
 beautifulsoup4
 edge-tts
+deep-translator
