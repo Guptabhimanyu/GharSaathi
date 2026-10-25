@@ -1,0 +1,9 @@
+openai
+python-dotenv
+streamlit>=1.40
+pymupdf
+fastembed
+numpy
+requests
+beautifulsoup4
+edge-tts
