@@ -57,7 +57,11 @@ def fetch_all(force: bool = False) -> list[str]:
             print(f"warn {s['id']}: HTTP {r.status_code}; keeping cached copy")
             continue
         if s["type"] == "html":
-            data, ext = html_to_text(r.text).encode(), "txt"
+            try:
+                html = r.content.decode("utf-8")
+            except UnicodeDecodeError:
+                html = r.content.decode(r.apparent_encoding or "latin-1", errors="replace")
+            data, ext = html_to_text(html).encode(), "txt"
         else:
             data, ext = r.content, "pdf"
             if not data.startswith(b"%PDF"):

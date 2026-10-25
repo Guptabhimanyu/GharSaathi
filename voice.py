@@ -30,11 +30,16 @@ def transcribe(audio: bytes, lang_hint: str | None = None) -> str:
                             timeout=60, max_retries=0)
 
             def run(language):
-                kw = dict(model=os.getenv("GROQ_STT_MODEL", "whisper-large-v3"), file=("speech.wav", audio),
-                          response_format="text", temperature=0)
-                if language:
-                    kw["language"] = language
-                return str(client.audio.transcriptions.create(**kw)).strip()
+                last = None
+                for model in os.getenv("GROQ_STT_MODEL", "whisper-large-v3,whisper-large-v3-turbo").split(","):
+                    try:
+                        kw = dict(model=model.strip(), file=("speech.wav", audio), response_format="text", temperature=0)
+                        if language:
+                            kw["language"] = language
+                        return str(client.audio.transcriptions.create(**kw)).strip()
+                    except Exception as e:
+                        last = e
+                raise last
 
             text = run(lang_hint)
             if not lang_hint and _ARABIC.search(text):  # Whisper sometimes writes Hindi speech in Urdu script

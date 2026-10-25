@@ -49,21 +49,23 @@ def _llm(messages, max_tokens=1200) -> str:
     return llm.complete(SYSTEM, messages, max_tokens)
 
 
-def _extractive(chunks, n=3) -> str:
+def _extractive(chunks, n=3, reason: str = "") -> str:
     lines = ["⚠️ The AI assistant is temporarily unavailable (free-tier limits reached). Here are the most relevant "
              "passages from the official documents instead. यहाँ आधिकारिक दस्तावेज़ों के सबसे प्रासंगिक अंश दिए गए हैं।\n"]
     for c in chunks[:n]:
         snippet = c["text"].replace("\n", " ")[:600].rsplit(" ", 1)[0] + "…"
         lines.append(f"**{c.get('label', c['source'])}, p.{c['page']}**\n> {snippet}\n")
     lines.append("Please try again in a minute.")
+    if reason:
+        lines.append(f"\n*Technical details: {reason[:500]}*")
     return "\n".join(lines)
 
 
 def _answer(messages, chunks, max_tokens=1200) -> str:
     try:
         return _llm(messages, max_tokens)
-    except llm.LLMUnavailable:
-        return _extractive(chunks)
+    except llm.LLMUnavailable as e:
+        return _extractive(chunks, reason=str(e))
 
 
 def personalized_plan(retriever: Retriever, profile: Profile):

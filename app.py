@@ -163,3 +163,6 @@ if st.sidebar.button("Check for updates now"):
     get_retriever.clear()
     st.session_state.pop("plan", None)
     st.rerun()
+
+_found = [p.name for p in llm.PROVIDERS.values() if p.enabled]
+st.sidebar.caption("LLM keys found: " + (", ".join(_found) if _found else "none (add them in Settings → Secrets)"))
