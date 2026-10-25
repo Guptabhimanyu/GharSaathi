@@ -17,6 +17,8 @@ Rules:
 - Never invent eligibility rules, amounts, or deadlines.
 - If passages conflict, prefer the more recent / PMAY-U 2.0 document and say that older documents differ.
 - Use plain, simple language. Mention that rules can change and the person should confirm at the official portal or their urban local body.
+- Be brief: lead with the direct answer, then only what this person needs. No tables, no repeated caveats.
+- Copy numbers and amounts exactly from the passages. Anything not in the passages must be labelled "general tip (not from the documents)" or left out.
 - You are not official advice."""
 
 
@@ -72,13 +74,14 @@ def personalized_plan(retriever: Retriever, profile: Profile):
     chunks = retriever.search_many(profile.queries())
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
-        "Write a short personalized guide with these headings:\n"
-        "1. What you may be able to look into (options that fit this profile)\n"
-        "2. What you must still check (eligibility conditions that depend on facts I don't know)\n"
-        "3. Documents and next steps\n"
-        "4. What the documents don't tell me"
+        "Write a SHORT guide, under 180 words, with exactly these three headings:\n"
+        "**Your best options** (max 3 bullets, one line each)\n"
+        "**Check before applying** (max 3 bullets, only conditions that depend on facts you don't know)\n"
+        "**Next steps** (max 4 short numbered steps)\n"
+        "Mention only what is relevant to this profile. Do not repeat the profile back. "
+        "If something important is not in the documents, add one final line starting 'Not covered by the documents:'."
     )
-    return _answer([{"role": "user", "content": prompt}], chunks, 1500), chunks
+    return _answer([{"role": "user", "content": prompt}], chunks, 700), chunks
 
 
 def chat_reply(retriever: Retriever, profile: Profile, history: list[dict], question: str,
@@ -88,25 +91,23 @@ def chat_reply(retriever: Retriever, profile: Profile, history: list[dict], ques
     answer_in = "Hindi (Devanagari script)" if lang == "hi" else "English"
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\nQuestion: {question}\n\n"
-        f"Answer in {answer_in}. Keep numbers, amounts and citation markers like [1] unchanged."
+        f"Answer in {answer_in}. Be brief: 2-4 sentences or at most 4 short bullets, direct answer first. "
+        f"Give more detail only if the person asks for it. Keep numbers, amounts and citation markers like [1] unchanged."
     )
-    return _answer(history + [{"role": "user", "content": prompt}], chunks), chunks
+    return _answer(history + [{"role": "user", "content": prompt}], chunks, 800), chunks
 
 
 def loan_options(retriever: Retriever, profile: Profile):
     chunks = retriever.search_many(profile.loan_queries(), k_each=3, limit=9)
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
-        "Suggest the 2-3 loan ROUTES most worth exploring for this person, best fit first. A route is a type of loan or "
-        "loan-linked scheme described in the context (for example a subsidised home loan, or a guarantee-backed loan), "
-        "NOT a specific bank's product. For each route give: what it is; why it may fit this profile; "
-        "what to verify before applying. Rules:\n"
-        "- Use only the context for scheme numbers, caps and eligibility; cite them.\n"
-        "- Do not state any bank's interest rate or call any lender 'the best'. Tell the person to get written quotes "
-        "from at least 2-3 regulated lenders and compare total cost.\n"
-        "- Take their income proof and existing EMIs into account. If a loan looks hard for them, say so honestly "
-        "and mention the non-loan routes from the documents (e.g. rental housing).\n"
-        "- Warn briefly about paying anyone to 'guarantee' a subsidy; applications go through the official portal and lenders.\n"
-        "- Say this is general information, not financial advice."
+        "Suggest at most 3 loan ROUTES worth exploring for this person, best fit first, under 200 words in total. "
+        "A route is a type of loan or loan-linked scheme from the context (e.g. a subsidised home loan, a guarantee-backed "
+        "loan), NOT a specific bank's product. For each route write three short lines: what it is; why it may fit; what to check.\n"
+        "- Use only the context for scheme numbers, caps and eligibility, and cite them.\n"
+        "- Never state a bank's interest rate or call a lender 'the best'.\n"
+        "- Consider their income proof and existing EMIs. If a loan looks hard for them, say so and point to non-loan routes in the documents.\n"
+        "- End with exactly one line: 'General information, not financial advice. Compare written quotes from 2-3 regulated lenders, "
+        "and never pay anyone to guarantee a subsidy.'"
     )
-    return _answer([{"role": "user", "content": prompt}], chunks, 1500), chunks
+    return _answer([{"role": "user", "content": prompt}], chunks, 700), chunks
