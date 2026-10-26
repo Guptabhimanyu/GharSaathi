@@ -28,4 +28,6 @@ See `DEPLOY.md` for Streamlit Community Cloud.
 - [ ] Gujarat state documents, Gujarati support
 - [ ] Check for low-quality model answers and retry on the next provider
 - [ ] Nightly scheduled refresh
-# GharSaathi
+
+## Data credits
+`static/cities.json` is derived from the open dataset github.com/nshntarora/Indian-Cities-JSON (names tidied; Sikkim, Ladakh and Lakshadweep have no entries, so users can type their town). Scheme documents come only from official .gov.in / .nic.in sources listed in `sources.json`.

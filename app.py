@@ -47,6 +47,15 @@ refresh.start_background()  # at most once a day, never blocks the page
 if refresh.consume_changed():
     get_retriever.clear()  # a refresh finished: reload the index next time it is needed
 
+@st.cache_data
+def load_cities() -> dict:
+    try:
+        return json.loads(Path("static/cities.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+OTHER_CITY = "My city/town is not listed"
 STATES = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
           "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
           "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
@@ -54,15 +63,23 @@ STATES = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh
           "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"]
 
 if "profile" not in st.session_state:
-    with st.form("intake"):
+    with st.container(border=True):
         st.subheader("A few quick questions")
         occupation = st.selectbox("What work do you do?", [
             "Factory / industrial worker", "Construction worker", "Domestic / gig / informal worker",
             "Student", "Salaried employee (private)", "Self-employed / small business", "Other"])
         income = st.number_input("Monthly household income (₹)", min_value=0, value=15000, step=1000)
         c1, c2 = st.columns(2)
-        city = c1.text_input("City / town")
-        state = c2.selectbox("State / UT", ["Select..."] + STATES)
+        state = c1.selectbox("State / UT", ["Select..."] + STATES, key="f_state")
+        if state.startswith("Select"):
+            c2.selectbox("City / town", ["Choose a state first"], disabled=True, key="f_city_wait")
+            city = ""
+        else:
+            pick = c2.selectbox("City / town", ["Select..."] + load_cities().get(state, []) + [OTHER_CITY],
+                                key=f"f_city_{state}")  # key per state: changing state resets the city
+            city = "" if pick.startswith("Select") else pick
+            if pick == OTHER_CITY:
+                city = st.text_input("Type your city / town", key=f"f_city_other_{state}")
         gender = st.selectbox("Gender", ["Female", "Male", "Other"])
         migrant = st.checkbox("I moved here from another city/state for work or study")
         owns = st.checkbox("My family owns a pucca house anywhere in India")
@@ -70,7 +87,7 @@ if "profile" not in st.session_state:
         proof = st.selectbox("How can you show your income?", ["Salary slips", "Bank statements only", "Mostly cash, no proof"])
         existing_emi = st.number_input("Monthly EMIs you already pay on other loans (₹)", min_value=0, value=0, step=500)
         need = st.selectbox("What do you need?", ["Short-term rental", "Long-term rental", "Own a house", "Not sure"])
-        if st.form_submit_button("Show me my options"):
+        if st.button("Show me my options", type="primary"):
             if not city.strip() or state.startswith("Select"):
                 st.warning("Please enter your city and choose your state, so the guide matches where you live.")
                 st.stop()
