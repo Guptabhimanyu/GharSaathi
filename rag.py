@@ -68,6 +68,10 @@ def _llm(messages, max_tokens=1200) -> str:
     return llm.complete(SYSTEM, messages, max_tokens)
 
 
+def _lang_line(lang: str) -> str:
+    return "Write everything in Hindi (Devanagari script), including headings and any closing line. " if lang == "hi" else ""
+
+
 def _extractive(chunks, n=3, reason: str = "") -> str:
     lines = ["⚠️ The AI assistant is temporarily unavailable (free-tier limits reached). Here are the most relevant "
              "passages from the official documents instead. यहाँ आधिकारिक दस्तावेज़ों के सबसे प्रासंगिक अंश दिए गए हैं।\n"]
@@ -89,11 +93,11 @@ def _answer(messages, chunks, max_tokens=1200) -> str:
         return _extractive(chunks, reason=str(e))
 
 
-def personalized_plan(retriever: Retriever, profile: Profile):
+def personalized_plan(retriever: Retriever, profile: Profile, lang: str = "en"):
     chunks = retriever.search_many(profile.queries(), limit=6)
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
-        "Write a SHORT guide, under 180 words, with exactly these three headings:\n"
+        f"{_lang_line(lang)}Write a SHORT guide, under 180 words, with exactly these three headings:\n"
         "**Your best options** (max 3 bullets, one line each)\n"
         "**Check before applying** (max 3 bullets, only conditions that depend on facts you don't know)\n"
         "**Next steps** (max 4 short numbered steps)\n"
@@ -102,7 +106,7 @@ def personalized_plan(retriever: Retriever, profile: Profile):
         "Mention only what is relevant to this profile. Do not repeat the profile back. "
         "If something important is not in the documents, add one final line starting 'Not covered by the documents:'."
     )
-    return _answer([{"role": "user", "content": prompt}], chunks, 700), chunks
+    return _answer([{"role": "user", "content": prompt}], chunks, 1100 if lang == "hi" else 700), chunks
 
 
 def chat_reply(retriever: Retriever, profile: Profile, history: list[dict], question: str,
@@ -121,11 +125,11 @@ def chat_reply(retriever: Retriever, profile: Profile, history: list[dict], ques
     return _answer(history + [{"role": "user", "content": prompt}], chunks, 800), chunks
 
 
-def loan_options(retriever: Retriever, profile: Profile):
+def loan_options(retriever: Retriever, profile: Profile, lang: str = "en"):
     chunks = retriever.search_many(profile.loan_queries(), k_each=3, limit=6)
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
-        "Suggest at most 3 loan ROUTES worth exploring for this person, best fit first, under 200 words in total. "
+        f"{_lang_line(lang)}Suggest at most 3 loan ROUTES worth exploring for this person, best fit first, under 200 words in total. "
         "A route is a type of loan or loan-linked scheme from the context (e.g. a subsidised home loan, a guarantee-backed "
         "loan), NOT a specific bank's product. For each route write three short lines: what it is; why it may fit; what to check.\n"
         "- Use only the context for scheme numbers, caps and eligibility, and cite them.\n"
@@ -134,4 +138,4 @@ def loan_options(retriever: Retriever, profile: Profile):
         "- End with exactly one line: 'General information, not financial advice. Compare written quotes from 2-3 regulated lenders, "
         "and never pay anyone to guarantee a subsidy.'"
     )
-    return _answer([{"role": "user", "content": prompt}], chunks, 700), chunks
+    return _answer([{"role": "user", "content": prompt}], chunks, 1100 if lang == "hi" else 700), chunks
