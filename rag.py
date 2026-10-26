@@ -48,14 +48,26 @@ class Retriever:
         top = np.argsort(-scores)[:k]
         return [{**self.chunks[i], "score": float(scores[i])} for i in top]
 
-    def search_many(self, queries, k_each=3, limit=8):
+    def search_many(self, queries, k_each=3, limit=8, diverse=False):
+        """diverse=True takes the best hits of each query in turn (round robin), so no single topic crowds out the rest."""
+        per_query = [[c for c in self.search(q, k_each) if c["score"] >= MIN_SCORE] for q in queries]
         seen, out = set(), []
-        for q in queries:
-            for c in self.search(q, k_each):
-                key = (c["source"], c["page"], c["text"][:60])
-                if key not in seen and c["score"] >= MIN_SCORE:  # drop unrelated passages
-                    seen.add(key)
-                    out.append(c)
+
+        def add(c):
+            key = (c["source"], c["page"], c["text"][:60])
+            if key not in seen:
+                seen.add(key)
+                out.append(c)
+
+        if diverse:
+            for rank in range(k_each):
+                for hits in per_query:
+                    if rank < len(hits):
+                        add(hits[rank])
+            return out[:limit]
+        for hits in per_query:
+            for c in hits:
+                add(c)
         out.sort(key=lambda c: -c["score"])
         return out[:limit]
 
@@ -94,14 +106,17 @@ def _answer(messages, chunks, max_tokens=1200) -> str:
 
 
 def personalized_plan(retriever: Retriever, profile: Profile, lang: str = "en"):
-    chunks = retriever.search_many(profile.queries(), limit=6)
+    chunks = retriever.search_many(profile.queries(), k_each=2, limit=7, diverse=True)
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
         f"{_lang_line(lang)}Write a SHORT guide, under 180 words, with exactly these three headings:\n"
+        "Begin with one line: 'Income band: ...' stating which band the person's ANNUAL income falls in, using only the limits in the "
+        "passages (if the passages give no limits, write 'Income band: not stated in the documents').\n"
         "**Your best options** (max 3 bullets, one line each)\n"
         "**Check before applying** (max 3 bullets, only conditions that depend on facts you don't know)\n"
         "**Next steps** (max 4 short numbered steps)\n"
-        f"Put the person's stated need ({profile.need}) first; mention another route only if it clearly fits. "
+        f"Stay on the person's stated need ({profile.need}). If it is a rental, do NOT list buying or building routes; instead end "
+        "the 'Next steps' with one line saying they can ask about owning a house later. If it is to own a house, focus on ownership routes. "
         "If the city does not belong to the stated state, begin with one line saying so and asking them to correct it. "
         "Mention only what is relevant to this profile. Do not repeat the profile back. "
         "If something important is not in the documents, add one final line starting 'Not covered by the documents:'."
@@ -126,7 +141,7 @@ def chat_reply(retriever: Retriever, profile: Profile, history: list[dict], ques
 
 
 def loan_options(retriever: Retriever, profile: Profile, lang: str = "en"):
-    chunks = retriever.search_many(profile.loan_queries(), k_each=3, limit=6)
+    chunks = retriever.search_many(profile.loan_queries(), k_each=2, limit=6, diverse=True)
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
         f"{_lang_line(lang)}Suggest at most 3 loan ROUTES worth exploring for this person, best fit first, under 200 words in total. "

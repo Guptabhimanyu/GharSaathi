@@ -40,8 +40,15 @@ class Profile:
         ]
 
     def queries(self) -> list[str]:
-        q = [
-            f"eligibility for {self.occupation} affordable rental housing",
+        q = []
+        if "rental" in self.need.lower():  # first, so the rental passages are never crowded out
+            q += ["Affordable Rental Housing ARH vertical who is eligible rental housing for EWS LIG beneficiaries urban migrants workers",
+                  "ARH rent rules concessionaire rental housing complexes how rent is paid"]
+        if "own" in self.need.lower():
+            q += ["interest subsidy scheme eligibility home loan subsidy",
+                  "beneficiary led construction affordable housing in partnership eligibility"]
+        q += [
+            f"eligibility for {self.occupation} housing scheme",
             "annual household income limit EWS LIG MIG eligibility",
             "beneficiary must not own a pucca house",
             "documents required to apply and how to apply",
@@ -50,10 +57,6 @@ class Profile:
             q.append("urban migrants rental housing eligibility")
         if self.gender.lower() == "female":
             q.append("women working women hostel rental housing benefits")
-        if "rental" in self.need.lower():
-            q.append("affordable rental housing complexes rent rules lease duration")
-        if "own" in self.need.lower():
-            q.append("interest subsidy beneficiary led construction affordable housing in partnership")
         if self.employer_housing:
             q.append("employer provided housing industrial workers rental")
         q.append(f"{self.state} state implementation housing scheme")
