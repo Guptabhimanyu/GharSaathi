@@ -1,6 +1,7 @@
 """Incrementally index data/raw (.pdf/.txt). Only documents whose content hash changed are re-embedded."""
 import hashlib
 import json
+import os
 import re
 import unicodedata
 from pathlib import Path
@@ -68,8 +69,10 @@ def main():
         all_emb.append(emb)
     if not all_chunks:
         raise SystemExit("No documents indexed. Run `python fetch.py` or put PDFs in data/raw/.")
-    np.save(INDEX / "emb.npy", np.vstack(all_emb))
-    (INDEX / "chunks.json").write_text(json.dumps(all_chunks))
+    np.save(INDEX / "emb.tmp.npy", np.vstack(all_emb))  # write to temp files, then swap in atomically
+    (INDEX / "chunks.tmp.json").write_text(json.dumps(all_chunks))
+    os.replace(INDEX / "emb.tmp.npy", INDEX / "emb.npy")
+    os.replace(INDEX / "chunks.tmp.json", INDEX / "chunks.json")
     print(f"index ready: {len(all_chunks)} chunks")
 
 

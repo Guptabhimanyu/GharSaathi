@@ -1,6 +1,7 @@
 """Retrieval + grounded generation."""
 import json
 import os
+import time
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,7 @@ Rules:
 - Never invent eligibility rules, amounts, or deadlines.
 - If passages conflict, prefer the more recent / PMAY-U 2.0 document and say that older documents differ.
 - Use plain, simple language. Mention that rules can change and the person should confirm at the official portal or their urban local body.
+- Before recommending any route, compare its income limit and other conditions in the passages with the person's annual income and situation. Never recommend a route they do not qualify for.
 - Be brief: lead with the direct answer, then only what this person needs. No tables, no repeated caveats.
 - Copy numbers and amounts exactly from the passages. Anything not in the passages must be labelled "general tip (not from the documents)" or left out.
 - You are not official advice."""
@@ -33,8 +35,12 @@ Rules:
 
 class Retriever:
     def __init__(self):
-        self.emb = np.load(INDEX / "emb.npy")
-        self.chunks = json.loads((INDEX / "chunks.json").read_text())
+        for _ in range(3):  # a background refresh may be swapping files in; retry until they agree
+            self.emb = np.load(INDEX / "emb.npy")
+            self.chunks = json.loads((INDEX / "chunks.json").read_text())
+            if len(self.chunks) == len(self.emb):
+                break
+            time.sleep(1)
 
     def search(self, query: str, k: int = 5):
         q = embedder.embed([query])[0]
@@ -91,6 +97,8 @@ def personalized_plan(retriever: Retriever, profile: Profile):
         "**Your best options** (max 3 bullets, one line each)\n"
         "**Check before applying** (max 3 bullets, only conditions that depend on facts you don't know)\n"
         "**Next steps** (max 4 short numbered steps)\n"
+        f"Put the person's stated need ({profile.need}) first; mention another route only if it clearly fits. "
+        "If the city does not belong to the stated state, begin with one line saying so and asking them to correct it. "
         "Mention only what is relevant to this profile. Do not repeat the profile back. "
         "If something important is not in the documents, add one final line starting 'Not covered by the documents:'."
     )

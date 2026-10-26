@@ -23,12 +23,8 @@ except Exception:
 st.set_page_config(page_title="GharSaathi", page_icon="🏠")
 
 
-@st.cache_resource(ttl=24 * 3600, show_spinner="Checking for updated scheme documents...")
+@st.cache_resource(show_spinner="Loading documents...")
 def get_retriever():
-    try:
-        refresh.refresh()  # re-checks official sources at most once a day; falls back to cached copies
-    except Exception as e:  # network down, site blocked, etc.
-        print("refresh failed, using existing index:", e)
     return Retriever()
 
 
@@ -47,6 +43,16 @@ def last_checked() -> str:
 st.title("🏠 GharSaathi")
 st.caption("Unofficial guide. Answers come only from official scheme documents. Not official or financial advice; confirm with your urban local body.")
 
+refresh.start_background()  # at most once a day, never blocks the page
+if refresh.consume_changed():
+    get_retriever.clear()  # a refresh finished: reload the index next time it is needed
+
+STATES = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
+          "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
+          "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+          "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
+          "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"]
+
 if "profile" not in st.session_state:
     with st.form("intake"):
         st.subheader("A few quick questions")
@@ -55,8 +61,8 @@ if "profile" not in st.session_state:
             "Student", "Salaried employee (private)", "Self-employed / small business", "Other"])
         income = st.number_input("Monthly household income (₹)", min_value=0, value=15000, step=1000)
         c1, c2 = st.columns(2)
-        city = c1.text_input("City", "Gandhinagar")
-        state = c2.text_input("State", "Gujarat")
+        city = c1.text_input("City / town")
+        state = c2.selectbox("State / UT", ["Select..."] + STATES)
         gender = st.selectbox("Gender", ["Female", "Male", "Other"])
         migrant = st.checkbox("I moved here from another city/state for work or study")
         owns = st.checkbox("My family owns a pucca house anywhere in India")
@@ -65,6 +71,9 @@ if "profile" not in st.session_state:
         existing_emi = st.number_input("Monthly EMIs you already pay on other loans (₹)", min_value=0, value=0, step=500)
         need = st.selectbox("What do you need?", ["Short-term rental", "Long-term rental", "Own a house", "Not sure"])
         if st.form_submit_button("Show me my options"):
+            if not city.strip() or state.startswith("Select"):
+                st.warning("Please enter your city and choose your state, so the guide matches where you live.")
+                st.stop()
             st.session_state.profile = Profile(occupation, int(income), city, state, gender, migrant, owns, need, employer, proof, int(existing_emi))
             st.rerun()
 else:
@@ -165,10 +174,11 @@ else:
         st.rerun()
 
 st.sidebar.caption(f"Documents last checked: {last_checked()}")
+if refresh.is_running():
+    st.sidebar.caption("Checking for document updates in the background...")
 if st.sidebar.button("Check for updates now"):
-    get_retriever.clear()
-    st.session_state.pop("plan", None)
-    st.rerun()
+    refresh.start_background(now=True)
+    st.sidebar.caption("Started. Reload the page in a minute to see the result.")
 
 _found = [p.name for p in llm.PROVIDERS.values() if p.enabled]
 st.sidebar.caption("LLM keys found: " + (", ".join(_found) if _found else "none (add them in Settings → Secrets)"))
