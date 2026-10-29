@@ -61,3 +61,10 @@ class Profile:
             q.append("employer provided housing industrial workers rental")
         q.append(f"{self.state} state implementation housing scheme")
         return q
+
+    def state_queries(self) -> list[str]:
+        return [
+            f"{self.state} rental housing for migrant workers and the urban poor",
+            f"{self.state} affordable rental housing complexes units converted or constructed",
+            f"{self.state} state government housing policy PMAY urban implementation",
+        ]

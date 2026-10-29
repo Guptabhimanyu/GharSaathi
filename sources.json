@@ -52,5 +52,26 @@
     "label": "Cabinet approval of PMAY-U 2.0 (PMO)",
     "type": "html",
     "url": "https://www.pmindia.gov.in/?p=16443857"
+  },
+  {
+    "id": "gj-urban-housing-initiatives-2025",
+    "state": "Gujarat",
+    "type": "pdf",
+    "label": "Gujarat: Urban Housing Initiatives and Achievements (UD&UH Department, Mar 2025)",
+    "url": "https://pmaymis.gov.in/pmaymis2_2024/best_practices_PMAY01.03.25.pdf"
+  },
+  {
+    "id": "gj-arhc-rajkot-morbi-2025",
+    "state": "Gujarat",
+    "type": "pdf",
+    "label": "Gujarat: Rajya Sabha answer on rental housing (ARHC) in Rajkot and Morbi (Feb 2025)",
+    "url": "https://rsdebate.nic.in/bitstream/123456789/757966/1/PQ_267_03022025_U54_p238_p239.pdf"
+  },
+  {
+    "id": "mh-pmay-u-policy-initiatives",
+    "state": "Maharashtra",
+    "type": "pdf",
+    "label": "Maharashtra: PMAY-U policy initiatives (MoHUA compendium, older, PMAY-U 1.0 era)",
+    "url": "https://mohua.gov.in/upload/uploadfiles/files/5-%20Maharashtra.pdf"
   }
 ]

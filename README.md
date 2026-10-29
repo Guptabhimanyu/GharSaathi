@@ -31,3 +31,6 @@ See `DEPLOY.md` for Streamlit Community Cloud.
 
 ## Data credits
 `static/cities.json` is derived from the open dataset github.com/nshntarora/Indian-Cities-JSON (names tidied; Sikkim, Ladakh and Lakshadweep have no entries, so users can type their town). Scheme documents come only from official .gov.in / .nic.in sources listed in `sources.json`.
+
+## State documents
+Add a state's official documents to `sources.json` with a `"state"` field and a label that starts with the state name (for example `"label": "Gujarat: ..."`). They are shown only to users from that state; everyone else sees the national rules. Only .gov.in / .nic.in hosts are accepted.

@@ -1,6 +1,7 @@
 import html
 import json
 import os
+import re
 from pathlib import Path
 
 import streamlit as st
@@ -23,11 +24,29 @@ except Exception:
     pass
 
 st.markdown("""<style>
-.block-container {max-width: 760px; padding-top: 1.5rem;}
+.block-container {max-width: 760px; padding-top: 1.2rem;}
 div.stButton > button {border-radius: 12px; font-weight: 600; padding: 0.55rem 1.1rem;}
+div[data-testid="stVerticalBlockBorderWrapper"] {border-radius: 14px; box-shadow: 0 1px 4px rgba(15, 118, 110, 0.08);}
+.gs-hero {background: linear-gradient(135deg, #0F766E 0%, #14B8A6 100%); color: #fff; border-radius: 20px;
+          padding: 1.3rem 1.5rem; margin-bottom: 0.8rem; box-shadow: 0 4px 14px rgba(15, 118, 110, 0.25);}
+.gs-hero-title {font-size: 2rem; font-weight: 800; line-height: 1.2;}
+.gs-hero-sub {opacity: 0.95; margin-top: 0.25rem; font-size: 1.02rem;}
+.gs-note {background: #F0F7F5; border-left: 4px solid #0F766E; border-radius: 8px; padding: 0.5rem 0.8rem;
+          font-size: 0.85rem; color: #374151; margin-bottom: 1rem;}
+.gs-steps {display: flex; gap: 0.5rem; margin: 0.4rem 0 1rem;}
+.gs-step {flex: 1; text-align: center; padding: 0.45rem 0.2rem; border-radius: 999px; background: #EEF2F1;
+          color: #6B7280; font-weight: 600; font-size: 0.9rem;}
+.gs-step span {display: inline-block; width: 1.4rem; height: 1.4rem; line-height: 1.4rem; border-radius: 50%;
+               background: #D1D5DB; color: #fff; margin-right: 0.4rem; font-size: 0.8rem;}
+.gs-step.active {background: #0F766E; color: #fff;}
+.gs-step.active span {background: #fff; color: #0F766E;}
+.gs-step.done {background: #CCEBE6; color: #0F766E;}
+.gs-step.done span {background: #0F766E;}
+.gs-band {background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; border-radius: 12px;
+          padding: 0.6rem 0.9rem; font-weight: 600; margin-bottom: 0.8rem;}
 .gs-chip {display: inline-block; background: #E6F4F1; color: #0F766E; border-radius: 999px;
           padding: 3px 12px; margin: 2px 6px 2px 0; font-size: 0.9rem;}
-@media (max-width: 640px) {.block-container {padding-left: 1rem; padding-right: 1rem;}}
+@media (max-width: 640px) {.block-container {padding-left: 1rem; padding-right: 1rem;} .gs-hero-title {font-size: 1.6rem;}}
 </style>""", unsafe_allow_html=True)
 
 # ------------------------------------------------------------------ text
@@ -35,7 +54,9 @@ T = {
     "en": {
         "tagline": "Find out which government housing schemes may fit you, in three short steps.",
         "notice": "Unofficial guide. Answers come only from official scheme documents. Not official or financial advice; confirm with your urban local body.",
-        "step": "Step {n} of 3", "s1": "Where do you live?", "s2": "About you", "s3": "What do you need?",
+        "step": "Step {n} of 3", "st1": "Where", "st2": "About you", "st3": "Needs",
+        "state_docs": "State documents used for {s}: {n}",
+        "state_none": "No {s}-specific documents in my library yet, so this guide uses national rules. Check local rules with your urban local body.", "s1": "Where do you live?", "s2": "About you", "s3": "What do you need?",
         "state": "State / UT", "city": "City / town", "choose_state": "Choose a state first", "select": "Select...",
         "other_city": "My city/town is not listed", "type_city": "Type your city / town",
         "occ": "What work do you do?", "income": "Monthly household income (₹)", "gender": "Gender",
@@ -65,7 +86,9 @@ T = {
     "hi": {
         "tagline": "तीन आसान चरणों में जानें कि कौन-सी सरकारी आवास योजनाएँ आपके लिए हो सकती हैं।",
         "notice": "यह अनौपचारिक मार्गदर्शक है। उत्तर केवल सरकारी योजना दस्तावेज़ों पर आधारित हैं। यह आधिकारिक या वित्तीय सलाह नहीं है; अपने नगर निकाय से पुष्टि करें।",
-        "step": "चरण {n} / 3", "s1": "आप कहाँ रहते हैं?", "s2": "आपके बारे में", "s3": "आपको क्या चाहिए?",
+        "step": "चरण {n} / 3", "st1": "स्थान", "st2": "आप", "st3": "ज़रूरत",
+        "state_docs": "{s} के राज्य-स्तरीय दस्तावेज़: {n}",
+        "state_none": "{s} के लिए अभी कोई राज्य-स्तरीय दस्तावेज़ नहीं है, इसलिए यह गाइड राष्ट्रीय नियमों पर आधारित है। स्थानीय नियम अपने नगर निकाय से पूछें।", "s1": "आप कहाँ रहते हैं?", "s2": "आपके बारे में", "s3": "आपको क्या चाहिए?",
         "state": "राज्य / केंद्रशासित प्रदेश", "city": "शहर / कस्बा", "choose_state": "पहले राज्य चुनें", "select": "चुनें...",
         "other_city": "मेरा शहर सूची में नहीं है", "type_city": "अपने शहर / कस्बे का नाम लिखें",
         "occ": "आप क्या काम करते हैं?", "income": "घर की मासिक आय (₹)", "gender": "लिंग",
@@ -161,6 +184,39 @@ def go(step: int):
     st.session_state.step = step
 
 
+def steps_bar(step: int):
+    labels = [t("st1"), t("st2"), t("st3")]
+    items = "".join(
+        f"<div class='gs-step {'active' if n == step else 'done' if n < step else ''}'><span>{n}</span>{html.escape(lab)}</div>"
+        for n, lab in enumerate(labels, 1))
+    st.markdown(f"<div class='gs-steps'>{items}</div>", unsafe_allow_html=True)
+
+
+def render_guide(text: str):
+    """Show the guide as cards: an income-band badge, then one card per bold heading. Falls back to plain markdown."""
+    parts = re.split(r"(?m)^\s*\*\*([^*\n]+?)\*\*\s*:?\s*$", text)
+    if len(parts) < 3:
+        st.markdown(text)
+        return
+    pre = parts[0].strip()
+    if pre:
+        first, _, rest = pre.partition("\n")
+        st.markdown(f"<div class='gs-band'>{html.escape(first.strip())}</div>", unsafe_allow_html=True)
+        if rest.strip():
+            st.markdown(rest)
+    icons, note = ["✅", "⚠️", "🧭", "📍"], ""
+    for n, i in enumerate(range(1, len(parts) - 1, 2)):
+        head, body = parts[i].strip(), parts[i + 1].strip()
+        m = re.search(r"(?im)^(not covered by the documents:.*)$", body)
+        if m:
+            note, body = m.group(1), body.replace(m.group(1), "").strip()
+        with st.container(border=True):
+            st.markdown(f"**{icons[min(n, 3)]} {head}**")
+            st.markdown(body)
+    if note:
+        st.caption("ℹ️ " + note)
+
+
 def show_sources(chunks):
     with st.expander(t("sources")):
         for i, c in enumerate(chunks, 1):
@@ -173,21 +229,21 @@ refresh.start_background()  # at most once a day, never blocks the page
 if refresh.consume_changed():
     get_retriever.clear()  # a refresh finished: reload the index next time it is needed
 
-head_l, head_r = st.columns([3, 1])
+_, head_r = st.columns([3, 1])
 choice = head_r.segmented_control("Language", ["English", "हिन्दी"], default="हिन्दी" if lang() == "hi" else "English",
                                   key="w_lang", label_visibility="collapsed")
 if choice:  # set before anything below is drawn so the whole page uses one language
     st.session_state.lang = "hi" if choice == "हिन्दी" else "en"
-head_l.title("🏠 GharSaathi")
-st.caption(t("tagline"))
-st.caption(t("notice"))
+st.markdown(f"<div class='gs-hero'><div class='gs-hero-title'>🏠 GharSaathi</div>"
+            f"<div class='gs-hero-sub'>{html.escape(t('tagline'))}</div></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='gs-note'>ℹ️ {html.escape(t('notice'))}</div>", unsafe_allow_html=True)
 
 A = st.session_state.setdefault("answers", dict(DEFAULTS))
 step = st.session_state.get("step", 1)
 
 # ------------------------------------------------------------------ intake wizard
 if "profile" not in st.session_state:
-    st.progress(step / 3, text=t("step", n=step))
+    steps_bar(step)
     st.subheader(t("s" + str(step)))
     if step == 1:
         c1, c2 = st.columns(2)
@@ -286,14 +342,17 @@ else:
 
     with tabs[0]:
         text, src, by = st.session_state[f"plan_{lg}"]
-        st.markdown(text)
+        render_guide(text)
+        docs = retriever.state_docs(profile.state)
+        st.caption("📍 " + (t("state_docs", s=profile.state, n=len(docs)) if docs else t("state_none", s=profile.state)))
         st.caption(f"{t('generated')} {by}")
         show_sources(src)
 
     if profile.wants_loan():
         with tabs[1]:
             text, src, by = st.session_state[f"loans_{lg}"]
-            st.markdown(text)
+            with st.container(border=True):
+                st.markdown(text)
             st.caption(f"{t('generated')} {by}")
             show_sources(src)
             with st.expander(t("emi_title")):

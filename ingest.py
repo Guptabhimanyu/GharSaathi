@@ -65,7 +65,7 @@ def main():
             print(f"indexed {f.name}: {len(chunks)} chunks")
         for c in chunks:  # freshness metadata is attached at load time so it is never stale
             all_chunks.append({**c, "source": f.name, "label": meta.get("label", f.stem),
-                               "url": meta.get("url", ""), "checked": meta.get("checked_at", "")[:10]})
+                               "url": meta.get("url", ""), "state": meta.get("state", ""), "checked": meta.get("checked_at", "")[:10]})
         all_emb.append(emb)
     if not all_chunks:
         raise SystemExit("No documents indexed. Run `python fetch.py` or put PDFs in data/raw/.")

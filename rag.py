@@ -41,16 +41,27 @@ class Retriever:
             if len(self.chunks) == len(self.emb):
                 break
             time.sleep(1)
+        self.states = np.array([(c.get("state") or "") for c in self.chunks])
 
-    def search(self, query: str, k: int = 5):
+    def search(self, query: str, k: int = 5, state: str | None = None, only_state: bool = False):
+        """National documents are always searchable. A state's documents are searched only for that state.
+        only_state=True restricts the search to that state's documents."""
         q = embedder.embed([query])[0]
         scores = self.emb @ q
-        top = np.argsort(-scores)[:k]
+        if only_state:
+            allowed = (self.states == state) if state else np.zeros(len(scores), dtype=bool)
+        else:
+            allowed = (self.states == "") | ((self.states == state) if state else False)
+        scores = np.where(allowed, scores, -1.0)
+        top = [i for i in np.argsort(-scores)[:k] if scores[i] > -1.0]
         return [{**self.chunks[i], "score": float(scores[i])} for i in top]
 
-    def search_many(self, queries, k_each=3, limit=8, diverse=False):
+    def state_docs(self, state: str) -> list[str]:
+        return sorted({c.get("label", c["source"]) for c, s in zip(self.chunks, self.states) if s == state})
+
+    def search_many(self, queries, k_each=3, limit=8, diverse=False, state=None, only_state=False):
         """diverse=True takes the best hits of each query in turn (round robin), so no single topic crowds out the rest."""
-        per_query = [[c for c in self.search(q, k_each) if c["score"] >= MIN_SCORE] for q in queries]
+        per_query = [[c for c in self.search(q, k_each, state, only_state) if c["score"] >= MIN_SCORE] for q in queries]
         seen, out = set(), []
 
         def add(c):
@@ -106,20 +117,31 @@ def _answer(messages, chunks, max_tokens=1200) -> str:
 
 
 def personalized_plan(retriever: Retriever, profile: Profile, lang: str = "en"):
-    chunks = retriever.search_many(profile.queries(), k_each=2, limit=7, diverse=True)
+    central = retriever.search_many(profile.queries(), k_each=2, limit=6, diverse=True)
+    state_hits = retriever.search_many(profile.state_queries(), k_each=2, limit=3, state=profile.state, only_state=True)
+    chunks = central + state_hits
+    if state_hits:
+        state_rule = (f"Add a fourth heading **In {profile.state}** (max 3 bullets) using ONLY passages whose label starts with "
+                      f"'{profile.state}:', saying what they mean for this person's city and need. ")
+    else:
+        state_rule = (f"No {profile.state}-specific passages were found: end with one line starting 'In {profile.state}:' saying state and city "
+                      "rules are not in the documents and the person should check with their urban local body. ")
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
-        f"{_lang_line(lang)}Write a SHORT guide, under 180 words, with exactly these three headings:\n"
+        f"{_lang_line(lang)}Write a SHORT guide, under 230 words, with these headings:\n"
         "Begin with one line: 'Income band: ...' stating which band the person's ANNUAL income falls in, using only the limits in the "
         "passages (if the passages give no limits, write 'Income band: not stated in the documents').\n"
-        "**Your best options** (max 3 bullets, one line each)\n"
+        "**Your best options** (1 to 3 bullets, one line each; only real options, never restate an option or add procedure steps)\n"
         "**Check before applying** (max 3 bullets, only conditions that depend on facts you don't know)\n"
         "**Next steps** (max 4 short numbered steps)\n"
         f"Stay on the person's stated need ({profile.need}). If it is a rental, do NOT list buying or building routes; instead end "
-        "the 'Next steps' with one line saying they can ask about owning a house later (and, only if the passages say a beneficiary can use "
-        "just one vertical, add that in a few words). If it is to own a house, focus on ownership routes. "
+        "the 'Next steps' with one line about owning a house later: if the passages say a beneficiary can use only one vertical, make it a "
+        "caution ('Only one vertical can be used, so confirm with your ULB before switching to a buying route'); otherwise say they can ask "
+        "about owning later. Never write '(unknown)'; phrase unknowns as an action, e.g. 'Confirm that you have not...'. "
+        "If it is to own a house, focus on ownership routes. "
         "If the person's annual income is within about 10% of a band limit, say in 'Check before applying' that they are near the limit. "
         "If the city does not belong to the stated state, begin with one line saying so and asking them to correct it. "
+        + state_rule +
         "Mention only what is relevant to this profile. Do not repeat the profile back. "
         "If something important is not in the documents, add one final line starting 'Not covered by the documents:'."
     )
@@ -129,10 +151,10 @@ def personalized_plan(retriever: Retriever, profile: Profile, lang: str = "en"):
 def chat_reply(retriever: Retriever, profile: Profile, history: list[dict], question: str,
                lang: str = "en", search_query: str | None = None):
     sq = search_query or question  # English text used for searching the (English) documents
-    raw = retriever.search(sq, 3)  # relevance gate uses the question alone (profile words would inflate scores)
+    raw = retriever.search(sq, 3, state=profile.state)  # relevance gate uses the question alone (profile words would inflate scores)
     if not any(c["score"] >= MIN_SCORE for c in raw):
         return OUT_OF_SCOPE.get(lang, OUT_OF_SCOPE["en"]), raw[:1]
-    chunks = retriever.search_many([sq, f"{sq} {profile.occupation} {profile.need}"], k_each=4, limit=6)
+    chunks = retriever.search_many([sq, f"{sq} {profile.occupation} {profile.need}"], k_each=4, limit=6, state=profile.state)
     answer_in = "Hindi (Devanagari script)" if lang == "hi" else "English"
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\nQuestion: {question}\n\n"

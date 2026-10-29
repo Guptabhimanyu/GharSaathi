@@ -68,7 +68,7 @@ def fetch_all(force: bool = False) -> list[str]:
                 print(f"warn {s['id']}: response is not a PDF; keeping cached copy")
                 continue
         digest = hashlib.sha256(data).hexdigest()
-        m.update(label=s["label"], url=s["url"], etag=r.headers.get("ETag"),
+        m.update(label=s["label"], url=s["url"], state=s.get("state", ""), etag=r.headers.get("ETag"),
                  last_modified=r.headers.get("Last-Modified"), checked_at=now)
         if digest != m.get("sha256"):
             (RAW / f"{s['id']}.{ext}").write_bytes(data)
