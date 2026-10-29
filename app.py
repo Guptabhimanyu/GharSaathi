@@ -23,6 +23,11 @@ try:  # Streamlit Cloud "Secrets" -> environment variables read by llm.py / voic
 except Exception:
     pass
 
+_stale = [f for f, ok in [("rag.py", hasattr(Retriever, "state_docs")), ("user_profile.py", hasattr(Profile, "state_queries"))] if not ok]
+if _stale:
+    st.error("Some project files are out of date: " + ", ".join(_stale) + ". Copy ALL files from the latest zip into your repo, push, and reboot the app.")
+    st.stop()
+
 st.markdown("""<style>
 .block-container {max-width: 760px; padding-top: 1.2rem;}
 div.stButton > button {border-radius: 12px; font-weight: 600; padding: 0.55rem 1.1rem;}
@@ -338,6 +343,9 @@ else:
     except FileNotFoundError:
         st.error(t("index_missing"))
         st.stop()
+    if not isinstance(retriever, Retriever):  # a cached object from before an update: rebuild it
+        get_retriever.clear()
+        retriever = get_retriever()
     lg = lang()
     if f"plan_{lg}" not in st.session_state:
         with st.spinner(t("preparing")):
