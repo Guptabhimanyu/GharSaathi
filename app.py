@@ -46,6 +46,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] {border-radius: 14px; box-shadow
           padding: 0.6rem 0.9rem; font-weight: 600; margin-bottom: 0.8rem;}
 .gs-chip {display: inline-block; background: #E6F4F1; color: #0F766E; border-radius: 999px;
           padding: 3px 12px; margin: 2px 6px 2px 0; font-size: 0.9rem;}
+.gs-marquee {background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; border-radius: 10px; overflow: hidden;
+             white-space: nowrap; margin-bottom: 0.7rem; font-weight: 600; font-size: 0.92rem;}
+.gs-marquee span {display: inline-block; padding: 0.45rem 0 0.45rem 100%; animation: gs-scroll 30s linear infinite;}
+.gs-marquee:hover span {animation-play-state: paused;}
+@keyframes gs-scroll {from {transform: translateX(0);} to {transform: translateX(-100%);}}
+@media (prefers-reduced-motion: reduce) {.gs-marquee {white-space: normal;} .gs-marquee span {animation: none; padding: 0.45rem 0.8rem;}}
 @media (max-width: 640px) {.block-container {padding-left: 1rem; padding-right: 1rem;} .gs-hero-title {font-size: 1.6rem;}}
 </style>""", unsafe_allow_html=True)
 
@@ -54,6 +60,7 @@ T = {
     "en": {
         "tagline": "Find out which government housing schemes may fit you, in three short steps.",
         "notice": "Unofficial guide. Answers come only from official scheme documents. Not official or financial advice; confirm with your urban local body.",
+        "banner": "⚠️ For educational purposes only. GharSaathi is an unofficial guide, not a government service, and not legal, financial or official advice. Always confirm with your urban local body or the official PMAY portal before applying.",
         "step": "Step {n} of 3", "st1": "Where", "st2": "About you", "st3": "Needs",
         "state_docs": "State documents used for {s}: {n}",
         "state_none": "No {s}-specific documents in my library yet, so this guide uses national rules. Check local rules with your urban local body.", "s1": "Where do you live?", "s2": "About you", "s3": "What do you need?",
@@ -86,6 +93,7 @@ T = {
     "hi": {
         "tagline": "तीन आसान चरणों में जानें कि कौन-सी सरकारी आवास योजनाएँ आपके लिए हो सकती हैं।",
         "notice": "यह अनौपचारिक मार्गदर्शक है। उत्तर केवल सरकारी योजना दस्तावेज़ों पर आधारित हैं। यह आधिकारिक या वित्तीय सलाह नहीं है; अपने नगर निकाय से पुष्टि करें।",
+        "banner": "⚠️ केवल शैक्षिक उद्देश्य के लिए। GharSaathi एक अनौपचारिक मार्गदर्शक है, सरकारी सेवा नहीं, और यह कानूनी, वित्तीय या आधिकारिक सलाह नहीं है। आवेदन से पहले अपने नगर निकाय या आधिकारिक PMAY पोर्टल से पुष्टि करें।",
         "step": "चरण {n} / 3", "st1": "स्थान", "st2": "आप", "st3": "ज़रूरत",
         "state_docs": "{s} के राज्य-स्तरीय दस्तावेज़: {n}",
         "state_none": "{s} के लिए अभी कोई राज्य-स्तरीय दस्तावेज़ नहीं है, इसलिए यह गाइड राष्ट्रीय नियमों पर आधारित है। स्थानीय नियम अपने नगर निकाय से पूछें।", "s1": "आप कहाँ रहते हैं?", "s2": "आपके बारे में", "s3": "आपको क्या चाहिए?",
@@ -234,6 +242,9 @@ choice = head_r.segmented_control("Language", ["English", "हिन्दी"],
                                   key="w_lang", label_visibility="collapsed")
 if choice:  # set before anything below is drawn so the whole page uses one language
     st.session_state.lang = "hi" if choice == "हिन्दी" else "en"
+_banner = t("banner")
+st.markdown(f"<div class='gs-marquee' role='note'><span style='animation-duration:{max(20, int(len(_banner) * 0.22))}s'>"
+            f"{html.escape(_banner)}</span></div>", unsafe_allow_html=True)
 st.markdown(f"<div class='gs-hero'><div class='gs-hero-title'>🏠 GharSaathi</div>"
             f"<div class='gs-hero-sub'>{html.escape(t('tagline'))}</div></div>", unsafe_allow_html=True)
 st.markdown(f"<div class='gs-note'>ℹ️ {html.escape(t('notice'))}</div>", unsafe_allow_html=True)
