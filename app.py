@@ -29,7 +29,9 @@ if _stale:
     st.stop()
 
 st.markdown("""<style>
-.block-container {max-width: 760px; padding-top: 1.2rem;}
+.block-container {max-width: 760px; padding-top: 4rem;}
+button[kind="primary"], button[data-testid="stBaseButton-primary"] {background: #0F766E !important; border-color: #0F766E !important; color: #fff !important;}
+button[kind="primary"]:hover, button[data-testid="stBaseButton-primary"]:hover {background: #115E59 !important; border-color: #115E59 !important;}
 div.stButton > button {border-radius: 12px; font-weight: 600; padding: 0.55rem 1.1rem;}
 div[data-testid="stVerticalBlockBorderWrapper"] {border-radius: 14px; box-shadow: 0 1px 4px rgba(15, 118, 110, 0.08);}
 .gs-hero {background: linear-gradient(135deg, #0F766E 0%, #14B8A6 100%); color: #fff; border-radius: 20px;
@@ -242,16 +244,17 @@ refresh.start_background()  # at most once a day, never blocks the page
 if refresh.consume_changed():
     get_retriever.clear()  # a refresh finished: reload the index next time it is needed
 
-_, head_r = st.columns([3, 1])
-choice = head_r.segmented_control("Language", ["English", "हिन्दी"], default="हिन्दी" if lang() == "hi" else "English",
-                                  key="w_lang", label_visibility="collapsed")
-if choice:  # set before anything below is drawn so the whole page uses one language
-    st.session_state.lang = "hi" if choice == "हिन्दी" else "en"
+_pick = st.session_state.get("w_lang")  # the switch below saves its value before the script reruns
+if _pick:
+    st.session_state.lang = "hi" if _pick == "हिन्दी" else "en"
 _banner = t("banner")
 st.markdown(f"<div class='gs-marquee' role='note'><span style='animation-duration:{max(20, int(len(_banner) * 0.22))}s'>"
             f"{html.escape(_banner)}</span></div>", unsafe_allow_html=True)
 st.markdown(f"<div class='gs-hero'><div class='gs-hero-title'>🏠 GharSaathi</div>"
             f"<div class='gs-hero-sub'>{html.escape(t('tagline'))}</div></div>", unsafe_allow_html=True)
+_, head_r = st.columns([2, 2])
+head_r.segmented_control("🌐 Language / भाषा", ["English", "हिन्दी"], default="हिन्दी" if lang() == "hi" else "English",
+                         key="w_lang", label_visibility="collapsed")
 st.markdown(f"<div class='gs-note'>ℹ️ {html.escape(t('notice'))}</div>", unsafe_allow_html=True)
 
 A = st.session_state.setdefault("answers", dict(DEFAULTS))
