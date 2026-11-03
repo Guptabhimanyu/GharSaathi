@@ -34,3 +34,5 @@ See `DEPLOY.md` for Streamlit Community Cloud.
 
 ## State documents
 Add a state's official documents to `sources.json` with a `"state"` field and a label that starts with the state name (for example `"label": "Gujarat: ..."`). They are shown only to users from that state; everyone else sees the national rules. Only .gov.in / .nic.in hosts are accepted.
+
+`static/places.json` and the district names in `static/cities.json` are built by `tools/build_places.py` from the `indiapins` package (India Post pincode directory, data.gov.in open data).

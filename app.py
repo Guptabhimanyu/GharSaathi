@@ -68,6 +68,8 @@ T = {
         "tagline": "Find out which government housing schemes may fit you, in three short steps.",
         "notice": "Unofficial guide. Answers come only from official scheme documents. Not official or financial advice; confirm with your urban local body.",
         "banner": "⚠️ For educational purposes only. GharSaathi is an unofficial guide, not a government service, and not legal, financial or official advice. Always confirm with your urban local body or the official PMAY portal before applying.",
+        "place_conflict": "“{city}” is in {states} on my place list, but you chose {state}. Please check your state.",
+        "confirm_state": "My state is correct", "warn_conflict": "Please fix the state, or tick the box to confirm it is correct.",
         "step": "Step {n} of 3", "st1": "Where", "st2": "About you", "st3": "Needs",
         "state_docs": "State documents used for {s}: {n}",
         "state_none": "No {s}-specific documents in my library yet, so this guide uses national rules. Check local rules with your urban local body.", "s1": "Where do you live?", "s2": "About you", "s3": "What do you need?",
@@ -101,6 +103,8 @@ T = {
         "tagline": "तीन आसान चरणों में जानें कि कौन-सी सरकारी आवास योजनाएँ आपके लिए हो सकती हैं।",
         "notice": "यह अनौपचारिक मार्गदर्शक है। उत्तर केवल सरकारी योजना दस्तावेज़ों पर आधारित हैं। यह आधिकारिक या वित्तीय सलाह नहीं है; अपने नगर निकाय से पुष्टि करें।",
         "banner": "⚠️ केवल शैक्षिक उद्देश्य के लिए। GharSaathi एक अनौपचारिक मार्गदर्शक है, सरकारी सेवा नहीं, और यह कानूनी, वित्तीय या आधिकारिक सलाह नहीं है। आवेदन से पहले अपने नगर निकाय या आधिकारिक PMAY पोर्टल से पुष्टि करें।",
+        "place_conflict": "मेरी सूची के अनुसार “{city}” {states} में है, लेकिन आपने {state} चुना है। कृपया अपना राज्य जाँचें।",
+        "confirm_state": "मेरा राज्य सही है", "warn_conflict": "कृपया राज्य ठीक करें, या सही होने की पुष्टि के लिए बॉक्स चुनें।",
         "step": "चरण {n} / 3", "st1": "स्थान", "st2": "आप", "st3": "ज़रूरत",
         "state_docs": "{s} के राज्य-स्तरीय दस्तावेज़: {n}",
         "state_none": "{s} के लिए अभी कोई राज्य-स्तरीय दस्तावेज़ नहीं है, इसलिए यह गाइड राष्ट्रीय नियमों पर आधारित है। स्थानीय नियम अपने नगर निकाय से पूछें।", "s1": "आप कहाँ रहते हैं?", "s2": "आपके बारे में", "s3": "आपको क्या चाहिए?",
@@ -181,6 +185,19 @@ def load_cities() -> dict:
         return json.loads(Path("static/cities.json").read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+@st.cache_data
+def load_places() -> dict:
+    try:
+        return json.loads(Path("static/places.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def place_states(city: str) -> list:
+    """States a place name belongs to according to the India Post directory (empty if unknown)."""
+    return load_places().get(re.sub(r"[^a-z ]", "", city.lower()).strip(), [])
 
 
 def last_checked() -> str:
@@ -281,9 +298,17 @@ if "profile" not in st.session_state:
                 other = st.text_input(t("type_city"), value=A["city_other"], key=f"w_city_other_{state}")
                 city = other
         A.update(state=state, city=city, city_pick=pick, city_other=other)
+        known = place_states(city) if city.strip() else []
+        conflict = bool(known) and state != SELECT and state not in known
+        ok_key = f"w_state_ok_{state}_{city.strip().lower()}"
+        if conflict:
+            st.warning(t("place_conflict", city=city.strip(), states=", ".join(known), state=state))
+            st.checkbox(t("confirm_state"), key=ok_key)
         if st.button(t("next"), type="primary"):
             if state == SELECT or not city.strip():
                 st.warning(t("warn_place"))
+            elif conflict and not st.session_state.get(ok_key):
+                st.warning(t("warn_conflict"))
             else:
                 go(2)
                 st.rerun()
