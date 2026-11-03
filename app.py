@@ -70,6 +70,13 @@ T = {
         "banner": "⚠️ For educational purposes only. GharSaathi is an unofficial guide, not a government service, and not legal, financial or official advice. Always confirm with your urban local body or the official PMAY portal before applying.",
         "place_conflict": "“{city}” is in {states} on my place list, but you chose {state}. Please check your state.",
         "confirm_state": "My state is correct", "warn_conflict": "Please fix the state, or tick the box to confirm it is correct.",
+        "loan_ask_title": "Want loan suggestions?",
+        "loan_ask_body": "Thinking of borrowing for a home? I can suggest loan routes from the official documents, based on your income and situation. This is general information, not financial advice. Your answers are sent to the AI services that write this guide.",
+        "loan_yes": "Yes, show loan options", "loan_no": "No, thanks",
+        "loan_declined": "Okay, no loan suggestions. You can change your mind anytime.",
+        "loan_hint": "Thinking of a home loan? See the Loan options tab.",
+        "links_title": "Official links", "link_portal": "Official portal", "link_guidelines": "Scheme guidelines (PDF)",
+        "link_arh": "Rental housing (ARH) page", "link_iss": "Interest subsidy (ISS) page", "link_faq": "Official FAQ",
         "step": "Step {n} of 3", "st1": "Where", "st2": "About you", "st3": "Needs",
         "state_docs": "State documents used for {s}: {n}",
         "state_none": "No {s}-specific documents in my library yet, so this guide uses national rules. Check local rules with your urban local body.", "s1": "Where do you live?", "s2": "About you", "s3": "What do you need?",
@@ -105,6 +112,13 @@ T = {
         "banner": "⚠️ केवल शैक्षिक उद्देश्य के लिए। GharSaathi एक अनौपचारिक मार्गदर्शक है, सरकारी सेवा नहीं, और यह कानूनी, वित्तीय या आधिकारिक सलाह नहीं है। आवेदन से पहले अपने नगर निकाय या आधिकारिक PMAY पोर्टल से पुष्टि करें।",
         "place_conflict": "मेरी सूची के अनुसार “{city}” {states} में है, लेकिन आपने {state} चुना है। कृपया अपना राज्य जाँचें।",
         "confirm_state": "मेरा राज्य सही है", "warn_conflict": "कृपया राज्य ठीक करें, या सही होने की पुष्टि के लिए बॉक्स चुनें।",
+        "loan_ask_title": "क्या आप लोन के सुझाव चाहते हैं?",
+        "loan_ask_body": "अगर आप घर के लिए लोन लेने की सोच रहे हैं, तो मैं आपकी आय और स्थिति के आधार पर आधिकारिक दस्तावेज़ों से लोन के रास्ते बता सकता हूँ। यह सामान्य जानकारी है, वित्तीय सलाह नहीं। आपके जवाब इस गाइड को लिखने वाली AI सेवाओं को भेजे जाते हैं।",
+        "loan_yes": "हाँ, लोन विकल्प दिखाएँ", "loan_no": "नहीं, धन्यवाद",
+        "loan_declined": "ठीक है, लोन के सुझाव नहीं दिखाए जाएँगे। आप कभी भी बदल सकते हैं।",
+        "loan_hint": "घर के लिए लोन के सुझाव चाहिए? 'लोन के विकल्प' टैब देखें।",
+        "links_title": "आधिकारिक लिंक", "link_portal": "आधिकारिक पोर्टल", "link_guidelines": "योजना दिशानिर्देश (PDF)",
+        "link_arh": "किराये का आवास (ARH) पेज", "link_iss": "ब्याज सब्सिडी (ISS) पेज", "link_faq": "आधिकारिक FAQ",
         "step": "चरण {n} / 3", "st1": "स्थान", "st2": "आप", "st3": "ज़रूरत",
         "state_docs": "{s} के राज्य-स्तरीय दस्तावेज़: {n}",
         "state_none": "{s} के लिए अभी कोई राज्य-स्तरीय दस्तावेज़ नहीं है, इसलिए यह गाइड राष्ट्रीय नियमों पर आधारित है। स्थानीय नियम अपने नगर निकाय से पूछें।", "s1": "आप कहाँ रहते हैं?", "s2": "आपके बारे में", "s3": "आपको क्या चाहिए?",
@@ -214,6 +228,36 @@ def _submit_heard():
 
 def go(step: int):
     st.session_state.step = step
+
+
+PORTAL_URL = "https://pmaymis.gov.in/PMAYMIS2_2024/PmayDefault.aspx"
+FAQ_URL = "https://pmaymis.gov.in/PMAYMIS2_2024/faq.html"
+
+
+@st.cache_data
+def source_urls() -> dict:
+    try:
+        return {s["id"]: s["url"] for s in json.loads(Path("sources.json").read_text(encoding="utf-8"))}
+    except Exception:
+        return {}
+
+
+def show_links(profile):
+    """Official links picked for this person's need; URLs come from sources.json so they stay current."""
+    urls = source_urls()
+    links = [(t("link_portal"), PORTAL_URL)]
+    if urls.get("pmay-u-2-operational-guidelines"):
+        links.append((t("link_guidelines"), urls["pmay-u-2-operational-guidelines"]))
+    if "rental" in profile.need.lower() and urls.get("arh-vertical-page"):
+        links.append((t("link_arh"), urls["arh-vertical-page"]))
+    if profile.wants_loan() and urls.get("iss-vertical-page"):
+        links.append((t("link_iss"), urls["iss-vertical-page"]))
+    links.append((t("link_faq"), FAQ_URL))
+    with st.container(border=True):
+        st.markdown(f"**🔗 {t('links_title')}**")
+        cols = st.columns(2)
+        for n, (label, url) in enumerate(links):
+            cols[n % 2].link_button(label, url)
 
 
 def steps_bar(step: int):
@@ -356,7 +400,7 @@ else:
     e1, e2, _ = st.columns([1, 1, 2])
     if e1.button(t("edit")):
         st.session_state.pop("profile", None)
-        for k in [k for k in st.session_state if k.startswith(("plan_", "loans_"))] + ["history"]:
+        for k in [k for k in st.session_state if k.startswith(("plan_", "loans_"))] + ["history", "loan_choice"]:
             st.session_state.pop(k, None)
         go(1)
         st.rerun()
@@ -379,12 +423,9 @@ else:
         with st.spinner(t("preparing")):
             text, src = personalized_plan(retriever, profile, lg)
             st.session_state[f"plan_{lg}"] = (text, src, llm.LAST_PROVIDER)
-            if profile.wants_loan():
-                text, src = loan_options(retriever, profile, lg)
-                st.session_state[f"loans_{lg}"] = (text, src, llm.LAST_PROVIDER)
     st.session_state.setdefault("history", [])
 
-    names = [t("tab_guide")] + ([t("tab_loans")] if profile.wants_loan() else []) + [t("tab_ask")]
+    names = [t("tab_guide"), t("tab_loans"), t("tab_ask")]
     tabs = st.tabs(names)
 
     with tabs[0]:
@@ -393,10 +434,30 @@ else:
         docs = retriever.state_docs(profile.state)
         st.caption("📍 " + (t("state_docs", s=profile.state, n=len(docs)) if docs else t("state_none", s=profile.state)))
         st.caption(f"{t('generated')} {by}")
+        if profile.wants_loan() and st.session_state.get("loan_choice") != "yes":
+            st.info("💳 " + t("loan_hint"))
+        show_links(profile)
         show_sources(src)
 
-    if profile.wants_loan():
-        with tabs[1]:
+    with tabs[1]:
+        if st.session_state.get("loan_choice") != "yes":
+            with st.container(border=True):
+                st.markdown(f"**💳 {t('loan_ask_title')}**")
+                st.write(t("loan_ask_body"))
+                y, n = st.columns(2)
+                if y.button(t("loan_yes"), type="primary"):
+                    st.session_state.loan_choice = "yes"
+                    st.rerun()
+                if n.button(t("loan_no")):
+                    st.session_state.loan_choice = "no"
+                    st.rerun()
+            if st.session_state.get("loan_choice") == "no":
+                st.caption(t("loan_declined"))
+        else:
+            if f"loans_{lg}" not in st.session_state:
+                with st.spinner(t("preparing")):
+                    text, src = loan_options(retriever, profile, lg)
+                    st.session_state[f"loans_{lg}"] = (text, src, llm.LAST_PROVIDER)
             text, src, by = st.session_state[f"loans_{lg}"]
             with st.container(border=True):
                 st.markdown(text)
@@ -456,6 +517,8 @@ else:
             answer, found = chat_reply(retriever, profile, st.session_state.history, q, qlang, search_q)
             st.chat_message("assistant").markdown(answer)
             st.caption(f"{t('answered')} {llm.LAST_PROVIDER}")
+            if found and not answer.startswith(NOTICE_PREFIXES):
+                show_sources(found[:5])
             if debug and found:
                 st.caption(f"Best match score: {found[0]['score']:.2f} (documents are used above {MIN_SCORE})")
             if speak_on:
