@@ -28,6 +28,7 @@ Rules:
 - If passages conflict, prefer the more recent / PMAY-U 2.0 document and say that older documents differ.
 - Use plain, simple language. Mention that rules can change and the person should confirm at the official portal or their urban local body.
 - Before recommending any route, compare its income limit and other conditions in the passages with the person's annual income and situation. Never recommend a route they do not qualify for.
+- Do not confuse how long a rental project must operate (for example 25 years) with how long a tenant may stay; say what the passages say about each.
 - Be brief: lead with the direct answer, then only what this person needs. No tables, no repeated caveats.
 - Copy numbers and amounts exactly from the passages. Anything not in the passages must be labelled "general tip (not from the documents)" or left out.
 - You are not official advice."""

@@ -75,6 +75,25 @@ def to_english(text: str) -> str:
         raise err
 
 
+GLOSSARY = ("ARH = rental housing for people who do not want to own a house; ISS = home-loan interest subsidy; "
+            "BLC = building a house on one's own land (EWS); AHP = buying a house built in partnership (EWS).")
+
+
+def rewrite_query(text: str, lang: str, profile_summary: str = "", last_question: str = "") -> str:
+    """One short model call that turns a vague or Hindi message into a standalone English search query.
+    Falls back to the original text (English) or the translator (Hindi) if every model is unavailable."""
+    system = ("Rewrite the user's message as ONE standalone English search query for a library of Indian government housing-scheme "
+              "documents (PMAY-U 2.0). Translate from Hindi if needed. Use the profile and previous question only to fill in missing "
+              f"context. Keep numbers exact. Scheme terms: {GLOSSARY} Output only the query, with no quotes.")
+    try:
+        out = llm.complete(system, [{"role": "user", "content":
+                                     f"Profile: {profile_summary}\nPrevious question: {last_question or 'none'}\nMessage: {text}"}], max_tokens=120)
+        line = out.strip().splitlines()[0].strip().strip('"') if out.strip() else ""
+        return line or text
+    except llm.LLMUnavailable:
+        return to_english(text) if lang == "hi" else text
+
+
 def speak(text: str, lang: str) -> bytes | None:
     """Optional text-to-speech via edge-tts (unofficial, may break). Returns mp3 bytes or None."""
     try:

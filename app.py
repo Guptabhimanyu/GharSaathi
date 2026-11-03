@@ -443,14 +443,15 @@ else:
         q = st.session_state.pop("queued", None) or typed
         if q:
             qlang = voice.detect_lang(q)  # the answer follows the language of the question
+            last_user = next((m["content"] for m in reversed(st.session_state.history) if m["role"] == "user"), "")
             try:
-                search_q = voice.to_english(q) if qlang == "hi" else q
+                search_q = voice.rewrite_query(q, qlang, profile.summary(), last_user) if (qlang == "hi" or len(q.split()) < 8) else q
             except llm.LLMUnavailable as err:
                 st.caption(f"Technical details: {err}")
                 st.warning(t("translate_fail"))
                 st.stop()
             st.chat_message("user").markdown(q)
-            if qlang == "hi":
+            if search_q != q:
                 st.caption(t("searching", q=search_q))
             answer, found = chat_reply(retriever, profile, st.session_state.history, q, qlang, search_q)
             st.chat_message("assistant").markdown(answer)
