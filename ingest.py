@@ -48,6 +48,10 @@ def main():
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
     DOCS.mkdir(parents=True, exist_ok=True)
     all_chunks, all_emb = [], []
+    try:
+        sources = {x["id"]: x for x in json.loads(Path("sources.json").read_text(encoding="utf-8"))}
+    except Exception:
+        sources = {}
     manual = {}
     for f in sorted(MANUAL.glob("*.txt")) if MANUAL.exists() else []:
         head, _, body = f.read_text(encoding="utf-8").partition("\n---\n")
@@ -55,7 +59,11 @@ def main():
         manual[f] = ({"label": h.get("label", f.stem), "url": h.get("url", ""), "state": h.get("state", ""),
                       "checked_at": h.get("checked", "")}, body)
     for f in sorted([*RAW.glob("*.pdf"), *RAW.glob("*.txt"), *manual]):
-        meta = manual[f][0] if f in manual else manifest.get(f.stem, {})
+        if f in manual:
+            meta = manual[f][0]
+        else:  # downloaded automatically (manifest) or saved by hand: fall back to sources.json for label/url/state
+            src = sources.get(f.stem, {})
+            meta = {"label": src.get("label", f.stem), "url": src.get("url", ""), "state": src.get("state", ""), **manifest.get(f.stem, {})}
         name = f"manual-{f.stem}" if f in manual else f.stem  # cache name
         sha = hashlib.sha256(f.read_bytes()).hexdigest()
         cj, cn = DOCS / f"{name}.json", DOCS / f"{name}.npy"

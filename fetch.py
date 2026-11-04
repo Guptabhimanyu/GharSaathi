@@ -17,6 +17,13 @@ ALLOWED_SUFFIXES = (".gov.in", ".nic.in")
 HEADERS = {"User-Agent": "Mozilla/5.0 (housing-guide research project)"}
 
 
+def _skip(sid: str, reason: str):
+    if any(RAW.glob(f"{sid}.*")):
+        print(f"warn {sid}: {reason}; keeping cached copy")
+    else:
+        print(f"MISSING {sid}: {reason}; no copy yet. Open the URL in your browser, save the file as data/raw/{sid}.pdf (or .txt), then run refresh.py again")
+
+
 def load_manifest() -> dict:
     return json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
 
@@ -47,14 +54,14 @@ def fetch_all(force: bool = False) -> list[str]:
         try:
             r = requests.get(s["url"], headers=headers, timeout=60)
         except requests.RequestException as e:
-            print(f"warn {s['id']}: {type(e).__name__}; keeping cached copy")
+            _skip(s["id"], type(e).__name__)
             continue
         if r.status_code == 304:
             m["checked_at"] = now
             manifest[s["id"]] = m
             continue
         if r.status_code != 200:
-            print(f"warn {s['id']}: HTTP {r.status_code}; keeping cached copy")
+            _skip(s["id"], f"HTTP {r.status_code}")
             continue
         if s["type"] == "html":
             try:
@@ -65,7 +72,7 @@ def fetch_all(force: bool = False) -> list[str]:
         else:
             data, ext = r.content, "pdf"
             if not data.startswith(b"%PDF"):
-                print(f"warn {s['id']}: response is not a PDF; keeping cached copy")
+                _skip(s["id"], "response is not a PDF")
                 continue
         digest = hashlib.sha256(data).hexdigest()
         m.update(label=s["label"], url=s["url"], state=s.get("state", ""), etag=r.headers.get("ETag"),
