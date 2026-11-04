@@ -1,0 +1,16 @@
+{
+  "note": "Edit this file when the official limits change. Bands and verticals below come from the official PMAY-U 2.0 portal pages (Interest Subsidy Scheme page for the income limits; scheme notes for who each vertical serves).",
+  "source": "https://pmaymis.gov.in/PMAYMIS2_2024/PmayISS.aspx",
+  "checked": "2026-11",
+  "bands": [
+    {"name": "EWS", "max": 300000},
+    {"name": "LIG", "max": 600000},
+    {"name": "MIG", "max": 900000}
+  ],
+  "verticals": {
+    "ARH": ["EWS", "LIG"],
+    "ISS": ["EWS", "LIG", "MIG"],
+    "BLC": ["EWS"],
+    "AHP": ["EWS"]
+  }
+}

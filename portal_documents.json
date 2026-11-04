@@ -1,0 +1,16 @@
+{
+  "source": "https://pmaymis.gov.in/PMAYMIS2_2024/PMAY_SURVEY/EligiblityCheck.aspx",
+  "checked": "2026-11",
+  "items": [
+    {"en": "Applicant's Aadhaar details (Aadhaar number, name as per Aadhaar, date of birth).",
+     "hi": "आवेदक का आधार विवरण (आधार संख्या, आधार के अनुसार नाम, जन्म तिथि)।", "blc_only": false},
+    {"en": "Aadhaar details of family members (Aadhaar number, name as per Aadhaar, date of birth).",
+     "hi": "परिवार के सदस्यों का आधार विवरण (आधार संख्या, आधार के अनुसार नाम, जन्म तिथि)।", "blc_only": false},
+    {"en": "Active bank account details of the applicant (account number, bank name, branch, IFSC code), linked with Aadhaar.",
+     "hi": "आवेदक के सक्रिय बैंक खाते का विवरण (खाता संख्या, बैंक का नाम, शाखा, IFSC कोड), जो आधार से जुड़ा हो।", "blc_only": false},
+    {"en": "Income proof (PDF file only, size up to 100 KB).",
+     "hi": "आय प्रमाण (केवल पीडीएफ फाइल, साइज़ 100 KB तक)।", "blc_only": false},
+    {"en": "Land document, only for the BLC vertical (PDF file only, size up to 1 MB).",
+     "hi": "भूमि दस्तावेज़, केवल बीएलसी घटक के मामले में (केवल पीडीएफ, साइज़ 1 MB तक)।", "blc_only": true}
+  ]
+}

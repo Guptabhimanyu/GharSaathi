@@ -1,6 +1,8 @@
 """Intake profile and how it becomes retrieval queries. No eligibility rules live here."""
 from dataclasses import dataclass
 
+import rules
+
 
 @dataclass
 class Profile:
@@ -23,8 +25,17 @@ class Profile:
             f"gender: {self.gender}; migrant: {'yes' if self.is_migrant else 'no'}; "
             f"family owns pucca house in India: {'yes' if self.owns_pucca_house else 'no'}; "
             f"housing need: {self.need}; employer provides housing: {'yes' if self.employer_housing else 'no'}; "
-            f"income proof: {self.income_proof}; existing monthly EMIs: Rs {self.existing_emi:,}"
+            f"income proof: {self.income_proof}; existing monthly EMIs: Rs {self.existing_emi:,}" + self._band_facts()
         )
+
+    def _band_facts(self) -> str:
+        d = rules.describe(self.monthly_income * 12)
+        if not d["known"]:
+            return ""
+        if d["band"]:
+            return (f"; INCOME BAND (computed from the official limits: {d['limits']}): {d['band']}; routes open to this band: "
+                    f"{', '.join(d['open']) or 'none'}; routes NOT open to this band: {', '.join(d['closed']) or 'none'}")
+        return f"; INCOME BAND: above every official limit ({d['limits']}), so income-linked routes are probably closed"
 
     def wants_loan(self) -> bool:
         return self.need in ("Own a house", "Not sure")

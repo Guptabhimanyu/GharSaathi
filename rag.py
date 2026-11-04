@@ -12,6 +12,7 @@ from user_profile import Profile
 
 INDEX = Path("data/index")
 MIN_SCORE = float(os.getenv("MIN_SCORE", "0.45"))  # below this similarity a passage is treated as unrelated
+LENDER_ONLY = ("pli-user-manual",)  # written for banks; kept for loan questions, left out of the eligibility guide
 NOTICE_PREFIXES = ("⚠️", "ℹ️")  # system notices that must not be stored as chat history
 OUT_OF_SCOPE = {
     "en": "ℹ️ I can only help with government housing schemes (rental housing, home loans and subsidies), using the official "
@@ -120,6 +121,7 @@ def _answer(messages, chunks, max_tokens=1200) -> str:
 def personalized_plan(retriever: Retriever, profile: Profile, lang: str = "en"):
     central = retriever.search_many(profile.queries(), k_each=2, limit=6, diverse=True)
     state_hits = retriever.search_many(profile.state_queries(), k_each=2, limit=3, state=profile.state, only_state=True)
+    central = [c for c in central if not c["source"].startswith(LENDER_ONLY)]  # lender-facing manual: not for eligibility advice
     chunks = central + state_hits
     if state_hits:
         state_rule = (f"Add a fourth heading **In {profile.state}** (max 3 bullets) using ONLY passages whose label starts with "
@@ -130,8 +132,8 @@ def personalized_plan(retriever: Retriever, profile: Profile, lang: str = "en"):
     prompt = (
         f"Person's profile:\n{profile.summary()}\n\nContext:\n{_context(chunks)}\n\n"
         f"{_lang_line(lang)}Write a SHORT guide, under 230 words, with these headings:\n"
-        "Begin with one line: 'Income band: ...' stating which band the person's ANNUAL income falls in, using only the limits in the "
-        "passages (if the passages give no limits, write 'Income band: not stated in the documents').\n"
+        "Do not write an income band line and do not state any income limit except the person's own band: the profile already gives the "
+        "computed band and the routes open or NOT open to it. Never recommend a route that is listed as not open.\n"
         "**Your best options** (1 to 3 bullets, one line each; only real options, never restate an option or add procedure steps)\n"
         "**Check before applying** (max 3 bullets, only conditions that depend on facts you don't know)\n"
         "**Next steps** (max 4 short numbered steps)\n"

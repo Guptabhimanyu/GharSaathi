@@ -9,6 +9,7 @@ import streamlit as st
 import llm
 import loan_calc
 import refresh
+import rules
 import voice
 from rag import MIN_SCORE, NOTICE_PREFIXES, Retriever, chat_reply, loan_options, personalized_plan
 from user_profile import Profile
@@ -79,6 +80,9 @@ T = {
         "link_track": "Track your application", "link_ulb": "Find your Urban Local Body (ULB list)",
         "links_note": "These open the official government portal. If a page shows the home page instead, use the portal menu.", "link_guidelines": "Scheme guidelines (PDF)",
         "link_arh": "Rental housing (ARH) page", "link_iss": "Interest subsidy (ISS) page", "link_faq": "Official FAQ",
+        "band": "Income band", "band_over": "Your income is above every limit (up to ₹{top} lakh), so income-linked benefits may not apply.",
+        "band_note": "Limits from the official portal, checked {checked}.",
+        "docs_title": "Documents to keep ready", "docs_note": "From the official portal's “Documents Required” page (copied Nov 2026). For rental housing (ARH), confirm the list on the ARH portal.",
         "step": "Step {n} of 3", "st1": "Where", "st2": "About you", "st3": "Needs",
         "state_docs": "State documents used for {s}: {n}",
         "state_none": "No {s}-specific documents in my library yet, so this guide uses national rules. Check local rules with your urban local body.", "s1": "Where do you live?", "s2": "About you", "s3": "What do you need?",
@@ -123,6 +127,9 @@ T = {
         "link_track": "अपना आवेदन ट्रैक करें", "link_ulb": "अपना नगर निकाय खोजें (ULB सूची)",
         "links_note": "ये आधिकारिक सरकारी पोर्टल खोलते हैं। अगर कोई पेज होम पेज दिखाए, तो पोर्टल का मेनू इस्तेमाल करें।", "link_guidelines": "योजना दिशानिर्देश (PDF)",
         "link_arh": "किराये का आवास (ARH) पेज", "link_iss": "ब्याज सब्सिडी (ISS) पेज", "link_faq": "आधिकारिक FAQ",
+        "band": "आय वर्ग", "band_over": "आपकी आय हर सीमा से ऊपर है (₹{top} लाख तक), इसलिए आय-आधारित लाभ लागू नहीं हो सकते।",
+        "band_note": "सीमाएँ आधिकारिक पोर्टल से, जाँच: {checked}।",
+        "docs_title": "तैयार रखने के दस्तावेज़", "docs_note": "आधिकारिक पोर्टल के “आवश्यक दस्तावेज़” पेज से (नवंबर 2026 में लिया गया)। किराये के आवास (ARH) के लिए सूची ARH पोर्टल पर दोबारा जाँचें।",
         "step": "चरण {n} / 3", "st1": "स्थान", "st2": "आप", "st3": "ज़रूरत",
         "state_docs": "{s} के राज्य-स्तरीय दस्तावेज़: {n}",
         "state_none": "{s} के लिए अभी कोई राज्य-स्तरीय दस्तावेज़ नहीं है, इसलिए यह गाइड राष्ट्रीय नियमों पर आधारित है। स्थानीय नियम अपने नगर निकाय से पूछें।", "s1": "आप कहाँ रहते हैं?", "s2": "आपके बारे में", "s3": "आपको क्या चाहिए?",
@@ -273,6 +280,40 @@ def show_links(profile):
         for n, (label, url) in enumerate(links):
             cols[n % 2].link_button(label, url)
         st.caption(t("links_note"))
+
+
+@st.cache_data
+def load_documents() -> dict:
+    try:
+        return json.loads(Path("static/portal_documents.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def show_band(profile):
+    """Income band computed in code from static/scheme_rules.json, so the model cannot get it wrong."""
+    d = rules.describe(profile.monthly_income * 12)
+    if not d["known"]:
+        return
+    if d["band"]:
+        text = f"{t('band')}: {d['band']}  ·  ₹{d['annual']:,}/{'year' if lang() == 'en' else 'वर्ष'}  ·  ≤ ₹{d['band_max'] / 100000:g} lakh"
+    else:
+        text = t("band_over", top=f"{d['top'] / 100000:g}")
+    st.markdown(f"<div class='gs-band'>{html.escape(text)}</div>", unsafe_allow_html=True)
+    st.caption(t("band_note", checked=d["checked"]))
+
+
+def show_documents(profile):
+    doc = load_documents()
+    if not doc.get("items"):
+        return
+    buy = "own" in profile.need.lower() or "not sure" in profile.need.lower()
+    with st.container(border=True):
+        st.markdown(f"**📄 {t('docs_title')}**")
+        for it in doc["items"]:
+            if buy or not it.get("blc_only"):
+                st.markdown(f"- {it[lang()]}")
+        st.caption(t("docs_note"))
 
 
 def steps_bar(step: int):
@@ -445,10 +486,12 @@ else:
 
     with tabs[0]:
         text, src, by = st.session_state[f"plan_{lg}"]
+        show_band(profile)
         render_guide(text)
         docs = retriever.state_docs(profile.state)
         st.caption("📍 " + (t("state_docs", s=profile.state, n=len(docs)) if docs else t("state_none", s=profile.state)))
         st.caption(f"{t('generated')} {by}")
+        show_documents(profile)
         if profile.wants_loan() and st.session_state.get("loan_choice") != "yes":
             st.info("💳 " + t("loan_hint"))
         show_links(profile)
