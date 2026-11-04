@@ -13,6 +13,7 @@ import embedder
 
 RAW, INDEX = Path("data/raw"), Path("data/index")
 DOCS, MANIFEST = INDEX / "docs", Path("data/manifest.json")
+MANUAL = Path("static/manual")  # short official pages copied by hand: header lines (label/url/state/checked), then ---, then text
 CLEAN_VERSION = 2  # bump when text cleaning changes so cached chunks get rebuilt
 # Some PDFs encode the "ti" ligature as a stray glyph (e.g. "applicaƟon", "meeƟng"); put "ti" back.
 _LIG = re.compile("(?<=[A-Za-z])[\u019f\u0398\u03b8]|[\u019f\u0398\u03b8](?=[A-Za-z])")
@@ -47,15 +48,23 @@ def main():
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
     DOCS.mkdir(parents=True, exist_ok=True)
     all_chunks, all_emb = [], []
-    for f in sorted([*RAW.glob("*.pdf"), *RAW.glob("*.txt")]):
-        meta = manifest.get(f.stem, {})
+    manual = {}
+    for f in sorted(MANUAL.glob("*.txt")) if MANUAL.exists() else []:
+        head, _, body = f.read_text(encoding="utf-8").partition("\n---\n")
+        h = {k.strip(): v.strip() for k, _, v in (ln.partition(":") for ln in head.splitlines()) if k.strip()}
+        manual[f] = ({"label": h.get("label", f.stem), "url": h.get("url", ""), "state": h.get("state", ""),
+                      "checked_at": h.get("checked", "")}, body)
+    for f in sorted([*RAW.glob("*.pdf"), *RAW.glob("*.txt"), *manual]):
+        meta = manual[f][0] if f in manual else manifest.get(f.stem, {})
+        name = f"manual-{f.stem}" if f in manual else f.stem  # cache name
         sha = hashlib.sha256(f.read_bytes()).hexdigest()
-        cj, cn = DOCS / f"{f.stem}.json", DOCS / f"{f.stem}.npy"
+        cj, cn = DOCS / f"{name}.json", DOCS / f"{name}.npy"
         cached = json.loads(cj.read_text()) if cj.exists() and cn.exists() else {}
         if cached.get("sha256") == sha and cached.get("embedder") == embedder.ID and cached.get("clean") == CLEAN_VERSION:
             chunks, emb = cached["chunks"], np.load(cn)
         else:
-            chunks = [{"page": p, "text": c} for p, t in read_pages(f) for c in chunk_words(clean(t))]
+            pages = [(1, manual[f][1])] if f in manual else read_pages(f)
+            chunks = [{"page": p, "text": c} for p, t in pages for c in chunk_words(clean(t))]
             if not chunks:
                 print(f"no text in {f.name} (scanned PDF?), skipping")
                 continue

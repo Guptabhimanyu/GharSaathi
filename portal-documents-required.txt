@@ -1,0 +1,11 @@
+label: PMAY-U 2.0 portal: documents required before applying (official page, copied Nov 2026)
+url: https://pmaymis.gov.in/PMAYMIS2_2024/PMAY_SURVEY/EligiblityCheck.aspx
+checked: 2026-11-06
+---
+Documents Required
+Before submitting your demand under the PMAY-U 2.0 scheme, please ensure you have the following documents ready:
+1. Applicant's Aadhaar details (Aadhaar number, name as per Aadhaar, date of birth).
+2. Aadhaar details of family members (Aadhaar number, name as per Aadhaar, date of birth).
+3. Active bank account details of the applicant (account number, bank name, branch, IFSC code) linked with Aadhaar.
+4. Income proof (Only PDF file, size up to 100 KB).
+5. Land document (in case of BLC vertical). (Only PDF file, size up to 1 MB.)

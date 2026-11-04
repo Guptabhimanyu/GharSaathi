@@ -75,7 +75,9 @@ T = {
         "loan_yes": "Yes, show loan options", "loan_no": "No, thanks",
         "loan_declined": "Okay, no loan suggestions. You can change your mind anytime.",
         "loan_hint": "Thinking of a home loan? See the Loan options tab.",
-        "links_title": "Official links", "link_portal": "Official portal", "link_guidelines": "Scheme guidelines (PDF)",
+        "links_title": "Official links", "link_portal": "Portal home page", "link_apply": "Apply for PMAY-U 2.0 (buy / build)", "link_arh_portal": "Apply for ARH (rental housing)",
+        "link_track": "Track your application", "link_ulb": "Find your Urban Local Body (ULB list)",
+        "links_note": "These open the official government portal. If a page shows the home page instead, use the portal menu.", "link_guidelines": "Scheme guidelines (PDF)",
         "link_arh": "Rental housing (ARH) page", "link_iss": "Interest subsidy (ISS) page", "link_faq": "Official FAQ",
         "step": "Step {n} of 3", "st1": "Where", "st2": "About you", "st3": "Needs",
         "state_docs": "State documents used for {s}: {n}",
@@ -117,7 +119,9 @@ T = {
         "loan_yes": "हाँ, लोन विकल्प दिखाएँ", "loan_no": "नहीं, धन्यवाद",
         "loan_declined": "ठीक है, लोन के सुझाव नहीं दिखाए जाएँगे। आप कभी भी बदल सकते हैं।",
         "loan_hint": "घर के लिए लोन के सुझाव चाहिए? 'लोन के विकल्प' टैब देखें।",
-        "links_title": "आधिकारिक लिंक", "link_portal": "आधिकारिक पोर्टल", "link_guidelines": "योजना दिशानिर्देश (PDF)",
+        "links_title": "आधिकारिक लिंक", "link_portal": "पोर्टल का होम पेज", "link_apply": "PMAY-U 2.0 के लिए आवेदन (खरीदना / बनाना)", "link_arh_portal": "ARH के लिए आवेदन (किराये का आवास)",
+        "link_track": "अपना आवेदन ट्रैक करें", "link_ulb": "अपना नगर निकाय खोजें (ULB सूची)",
+        "links_note": "ये आधिकारिक सरकारी पोर्टल खोलते हैं। अगर कोई पेज होम पेज दिखाए, तो पोर्टल का मेनू इस्तेमाल करें।", "link_guidelines": "योजना दिशानिर्देश (PDF)",
         "link_arh": "किराये का आवास (ARH) पेज", "link_iss": "ब्याज सब्सिडी (ISS) पेज", "link_faq": "आधिकारिक FAQ",
         "step": "चरण {n} / 3", "st1": "स्थान", "st2": "आप", "st3": "ज़रूरत",
         "state_docs": "{s} के राज्य-स्तरीय दस्तावेज़: {n}",
@@ -232,6 +236,10 @@ def go(step: int):
 
 PORTAL_URL = "https://pmaymis.gov.in/PMAYMIS2_2024/PmayDefault.aspx"
 FAQ_URL = "https://pmaymis.gov.in/PMAYMIS2_2024/faq.html"
+APPLY_URL = "https://pmaymis.gov.in/PMAYMIS2_2024/PMAY_SURVEY/EligiblityCheck.aspx"  # the portal spells it "Eligiblity"
+TRACK_URL = "https://pmaymis.gov.in/pmaymis2_2024/PMAY_SURVEY/TrackApplication.aspx"
+ULB_URL = "https://pmaymis.gov.in/PMAYMIS2_2024/List-of-ULB-DA.aspx"
+ARH_PORTAL_URL = "https://pmaymis.gov.in/ARH/"
 
 
 @st.cache_data
@@ -243,21 +251,28 @@ def source_urls() -> dict:
 
 
 def show_links(profile):
-    """Official links picked for this person's need; URLs come from sources.json so they stay current."""
-    urls = source_urls()
-    links = [(t("link_portal"), PORTAL_URL)]
+    """Official links that go straight to the pages this person needs, not just the home page."""
+    urls, need = source_urls(), profile.need.lower()
+    rent, buy = "rental" in need or "not sure" in need, "own" in need or "not sure" in need
+    links = []
+    if rent:
+        links.append((t("link_arh_portal"), ARH_PORTAL_URL))
+    if buy:
+        links.append((t("link_apply"), APPLY_URL))
+    if rent and urls.get("arh-vertical-page"):
+        links.append((t("link_arh"), urls["arh-vertical-page"]))
+    if buy and urls.get("iss-vertical-page"):
+        links.append((t("link_iss"), urls["iss-vertical-page"]))
+    links += [(t("link_track"), TRACK_URL), (t("link_ulb"), ULB_URL)]
     if urls.get("pmay-u-2-operational-guidelines"):
         links.append((t("link_guidelines"), urls["pmay-u-2-operational-guidelines"]))
-    if "rental" in profile.need.lower() and urls.get("arh-vertical-page"):
-        links.append((t("link_arh"), urls["arh-vertical-page"]))
-    if profile.wants_loan() and urls.get("iss-vertical-page"):
-        links.append((t("link_iss"), urls["iss-vertical-page"]))
-    links.append((t("link_faq"), FAQ_URL))
+    links += [(t("link_faq"), FAQ_URL), (t("link_portal"), PORTAL_URL)]
     with st.container(border=True):
         st.markdown(f"**🔗 {t('links_title')}**")
         cols = st.columns(2)
         for n, (label, url) in enumerate(links):
             cols[n % 2].link_button(label, url)
+        st.caption(t("links_note"))
 
 
 def steps_bar(step: int):
